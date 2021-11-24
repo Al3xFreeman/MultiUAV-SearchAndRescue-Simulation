@@ -1,6 +1,7 @@
 import dronekit as dk
 import dronekit_sitl as dk_sitl
-import time
+import argparse
+
 from checks import *
 
 
@@ -16,11 +17,36 @@ from checks import *
 class ControladorDron:
     def __init__(self):
         print("Iniciando el controlador del dron")
-        #Declarar variables que guarden el estado del dron
+        
+        parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
+        parser.add_argument('--connect',
+                            help="Vehicle connection target string. If not specified, SITL automatically started and used.")
+        args = parser.parse_args()
+
+        connection_string = args.connect
+        sitl = None
+
+        # Start SITL if no connection string specified
+        if not connection_string:
+            import dronekit_sitl
+            sitl = dronekit_sitl.start_default()
+            connection_string = sitl.connection_string()
+
+        # Connect to the Vehicle
+        print('Connecting to vehicle on: %s' % connection_string)
+        self.vehicle = dk.connect(connection_string, wait_ready=True)
+
+
 
     #Setup del dron
     def inicia():
         print("Iniciado")
+
+
+
+
+
+
 
     #Despega el dron a la altura especificada
     """
@@ -30,18 +56,20 @@ class ControladorDron:
         - Modo
         - Armado
     """
-    def despega(vehicle :dk.Vehicle, altura):
+    def despega(self, vehicle :dk.Vehicle, altura):
 
-        #Comprobar si la altura es válida
+        if(altura < 0):
+            print("Error: Altura ha de ser un valor positivo")
+            return
 
-        pre_arm()
+        pre_arm(vehicle)
 
-        arming()
+        arming(vehicle)
 
         print("Despega")
         vehicle.simple_takeoff(altura)
 
-        esperaAltura()
+        esperaAltura(vehicle, altura)
 
 
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html

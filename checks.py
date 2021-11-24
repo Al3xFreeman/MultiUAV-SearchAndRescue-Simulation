@@ -4,12 +4,13 @@ import time
 
 
 
-def pre_arm():
+def pre_arm(vehicle :dk.Vehicle):
     print("Basic pre-arm checks")
     # Don't try to arm until autopilot is ready
     while not vehicle.is_armable:
         print(" Waiting for vehicle to initialise...")
         time.sleep(1)
+
 
 def arming(vehicle :dk.Vehicle):
     print("Arming motors")
