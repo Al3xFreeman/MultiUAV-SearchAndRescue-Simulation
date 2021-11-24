@@ -1,5 +1,7 @@
-import dronekit
-import dronekit_sitl
+import dronekit as dk
+import dronekit_sitl as dk_sitl
+import time
+from checks import *
 
 
 #Controlador encargado de centralizar las diversas funciones
@@ -14,6 +16,33 @@ import dronekit_sitl
 class ControladorDron:
     def __init__(self):
         print("Iniciando el controlador del dron")
+        #Declarar variables que guarden el estado del dron
+
+    #Setup del dron
+    def inicia():
+        print("Iniciado")
+
+    #Despega el dron a la altura especificada
+    """
+    Comprobaciones:
+        - Altura es válida
+        - is_armable
+        - Modo
+        - Armado
+    """
+    def despega(vehicle :dk.Vehicle, altura):
+
+        #Comprobar si la altura es válida
+
+        pre_arm()
+
+        arming()
+
+        print("Despega")
+        vehicle.simple_takeoff(altura)
+
+        esperaAltura()
+
 
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html
     def mueve(**kwargs):
