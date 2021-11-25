@@ -69,6 +69,8 @@ class ControladorDron:
         print("Despega")
         vehicle.simple_takeoff(altura)
 
+        #Espera a que llegue a la altura especificada
+        #Si se mandara otra acci´pn antes de ello, se cancelaría la acción de despegar
         esperaAltura(vehicle, altura)
 
 
@@ -81,4 +83,6 @@ class ControladorDron:
         vel = kwargs.get('vel', None) #Controlling vehicle movement using velocity is much smoother than using position when there are likely to be many updates (for example when tracking moving objects).
 
         dir = kwargs.get('dir', None) #Yaw Axis -> Vehicle.attitude
+
+        
 
