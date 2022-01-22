@@ -369,30 +369,30 @@ def solveTSP(points):
     tspProblem = mlrose.TSPOpt(length = len(points), coords= points, maximize = False)
     best_state, best_fitness = mlrose.genetic_alg(tspProblem)
 
+    """
     print("GENETIC. The best state found is: ", best_state)
     print("GENETIC. The fitness at the best state is: ", best_fitness)
 
-    #best_state2, best_fitness2 = mlrose.hill_climb(tspProblem)
+    best_state2, best_fitness2 = mlrose.hill_climb(tspProblem)
 
     print("HILL CLIMB. The best state found is: ", best_state2)
     print("HILL CLIMB. The fitness at the best state is: ", best_fitness2)
 
-    #best_state3, best_fitness3 = mlrose.random_hill_climb(tspProblem)
+    best_state3, best_fitness3 = mlrose.random_hill_climb(tspProblem)
 
     print("RANDOM HILL CLIMB. The best state found is: ", best_state3)
     print("RAMDOM HILL CLIMB. The fitness at the best state is: ", best_fitness3)
 
-    
-    #best_state4, best_fitness4 = mlrose.simulated_annealing(tspProblem)
+    best_state4, best_fitness4 = mlrose.simulated_annealing(tspProblem)
 
     print("SIMULATED ANNEALING. The best state found is: ", best_state4)
     print("SIMULATED ANNEALING. The fitness at the best state is: ", best_fitness4)
 
-    #best_state5, best_fitness5 = mlrose.mimic(tspProblem)
+    best_state5, best_fitness5 = mlrose.mimic(tspProblem)
 
     print("MIMIC. The best state found is: ", best_state5)
     print("MIMIC. The fitness at the best state is: ", best_fitness5)
-
+    """
 
     return (best_state, best_fitness)
 
