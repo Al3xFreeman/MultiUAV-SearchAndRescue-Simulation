@@ -7,6 +7,9 @@ import argparse
 import time
 import math
 import pyproj
+from shapely.geometry import Point, Polygon
+import mlrose
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -262,13 +265,13 @@ def estructuraPoligono(coords):
     print(points)
     l = list(zip(*points))
 
-#    fig, ax = plt.subplots()
-#    ax.scatter(l[0], l[1])
-#
-#    for i, txt in enumerate(points):
-#        ax.annotate(i, (points[i][0], points[i][1]))
-#
-#    plt.show()
+    #fig, ax = plt.subplots()
+    #ax.scatter(l[0], l[1])
+
+    #for i, txt in enumerate(points):
+    #    ax.annotate(i, (points[i][0], points[i][1]))
+
+    #plt.show()
 
     return points
 
@@ -314,13 +317,37 @@ def generaMatriz(poligono, granularidad = 25):
         punto_x += granularidad
 
     print("Total puntos: ", len(puntos))
+    
+    return puntos
 
-
+#IMPORTANTE:
+    #https://automating-gis-processes.github.io/CSC18/lessons/L4/point-in-polygon.html
 def generaPuntos(poligono, matriz):
     """
     A partir de un polígono (una serie de puntos) y una matriz,
     genera una lista de todos los puntos de la matriz que estén dentro dentro de dicho polígono.
     """
+    polygonObj = Polygon(poligono)
+
+    puntosDentro = []
+
+    for punto in matriz:
+        p = Point([punto[0], punto[1]])
+        if(p.within(polygonObj)):
+            puntosDentro.append(p)
+    x = []
+    y = []
+    print("Longitud de puntos dentro:", len(puntosDentro))
+    for i, elem in enumerate(puntosDentro):
+        print("punto número ", i, "-> X:", elem.x, ", Y: ", elem.y)
+        x.append(elem.x)
+        y.append(elem.y)
+
+    #fig, ax = plt.subplots()
+    #ax.scatter(x, y)
+
+    #plt.show()
+
 
 def solveTSP(points):
     """
