@@ -8,6 +8,10 @@ import time
 import math
 import pyproj
 from shapely.geometry import Point, Polygon
+
+import six
+import sys
+sys.modules['sklearn.externals.six'] = six
 import mlrose
 
 
@@ -145,7 +149,7 @@ class ControladorDron:
 
         puntosDentro = generaPuntos(poligono, matriz)
 
-        ruta = solveTSP(puntosDentro)
+        (ruta, coste) = solveTSP(puntosDentro)
 
         return generateWaypoints(self.vehicle.location.global_frame, ruta)
 
@@ -282,7 +286,7 @@ def checkPoligono(poligono):
     """
     return True
 
-def generaMatriz(poligono, granularidad = 25):
+def generaMatriz(poligono, granularidad = 10):
     """
     A partir de un polígono (una serie de puntos),
     procesa el polígono para saber qué cuadrado inscribe a dicho polígono
@@ -330,11 +334,14 @@ def generaPuntos(poligono, matriz):
     polygonObj = Polygon(poligono)
 
     puntosDentro = []
+    puntosReturn = []
+
 
     for punto in matriz:
         p = Point([punto[0], punto[1]])
         if(p.within(polygonObj)):
             puntosDentro.append(p)
+            puntosReturn.append(punto)
     x = []
     y = []
     print("Longitud de puntos dentro:", len(puntosDentro))
@@ -343,17 +350,51 @@ def generaPuntos(poligono, matriz):
         x.append(elem.x)
         y.append(elem.y)
 
-    #fig, ax = plt.subplots()
-    #ax.scatter(x, y)
+    fig, ax = plt.subplots()
+    ax.scatter(x, y)
 
-    #plt.show()
+    plt.show()
 
+    return puntosReturn
 
+#Si lanza un Value error, atraparlo y reducir el número de puntos a la mitad
+# Así hasta que no lo de más.
+# Los puntos los reduzco de forma aleatoria, hay un 50% de posibilidades de que
+#  un punto desaparezca o no y tirando.
 def solveTSP(points):
     """
     Recibe una lista de puntos a recorrer y encuentra una solución óptima (o cercana a la óptima)
     para recorrer todos los puntos.
     """
+    tspProblem = mlrose.TSPOpt(length = len(points), coords= points, maximize = False)
+    best_state, best_fitness = mlrose.genetic_alg(tspProblem)
+
+    print("GENETIC. The best state found is: ", best_state)
+    print("GENETIC. The fitness at the best state is: ", best_fitness)
+
+    #best_state2, best_fitness2 = mlrose.hill_climb(tspProblem)
+
+    print("HILL CLIMB. The best state found is: ", best_state2)
+    print("HILL CLIMB. The fitness at the best state is: ", best_fitness2)
+
+    #best_state3, best_fitness3 = mlrose.random_hill_climb(tspProblem)
+
+    print("RANDOM HILL CLIMB. The best state found is: ", best_state3)
+    print("RAMDOM HILL CLIMB. The fitness at the best state is: ", best_fitness3)
+
+    
+    #best_state4, best_fitness4 = mlrose.simulated_annealing(tspProblem)
+
+    print("SIMULATED ANNEALING. The best state found is: ", best_state4)
+    print("SIMULATED ANNEALING. The fitness at the best state is: ", best_fitness4)
+
+    #best_state5, best_fitness5 = mlrose.mimic(tspProblem)
+
+    print("MIMIC. The best state found is: ", best_state5)
+    print("MIMIC. The fitness at the best state is: ", best_fitness5)
+
+
+    return (best_state, best_fitness)
 
 def generateWaypoints(origen, points):
     """
