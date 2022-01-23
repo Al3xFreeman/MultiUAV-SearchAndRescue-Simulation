@@ -1,6 +1,7 @@
 from cmath import atan, cos, sin
 from tabnanny import check
-from turtle import degrees
+from turtle import degrees, pu
+from venv import create
 import dronekit as dk
 import dronekit_sitl as dk_sitl
 import argparse
@@ -9,11 +10,14 @@ import math
 import pyproj
 from shapely.geometry import Point, Polygon
 
+from pymavlink import mavutil
+
 import six
 import sys
 sys.modules['sklearn.externals.six'] = six
 import mlrose
 
+from collections import deque
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -142,8 +146,8 @@ class ControladorDron:
 
         poligono = estructuraPoligono(coordenadas)
 
-        if not checkPoligono(poligono):
-            return "ERROR"
+#        if not checkPoligono(poligono):
+#            return "ERROR"
         
         matriz = generaMatriz(poligono, granularity)
 
@@ -151,9 +155,89 @@ class ControladorDron:
 
         (ruta, coste) = solveTSP(puntosDentro)
 
-        return generateWaypoints(self.vehicle.location.global_frame, ruta)
+        locationsGlobals = generateWaypoints(self.vehicle.location.global_frame, puntosDentro, ruta)
+
+        self.createMission(locationsGlobals)
+
+    
+    def createMission(self, locations):
+
+        cmds = self.vehicle.commands
+
+        print(" Clear any existing commands")
+        cmds.clear() 
+    
+        print(" Define/add new commands.")
+        #Add MAV_CMD_NAV_TAKEOFF command. This is ignored if the vehicle is already in the air.
+        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, 10))
+
+        for loc in locations:
+            cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, loc.lat, loc.lon, 11))
+        
+        #add dummy waypoint (same as the last one, lets us know when have reached destination)
+        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, locations[-1].lat, locations[-1].lon, 11))
+
+        cmds.upload()
 
 
+    def distance_to_current_waypoint(self):
+        """
+        Gets distance in metres to the current waypoint. 
+        It returns None for the first waypoint (Home location).
+        """
+        nextwaypoint = self.vehicle.commands.next
+        if nextwaypoint==0:
+            return None
+        missionitem = self.vehicle.commands[nextwaypoint-1] #commands are zero indexed
+        lat = missionitem.x
+        lon = missionitem.y
+        alt = missionitem.z
+        targetWaypointLocation = LocationGlobalRelative(lat,lon,alt)
+        distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
+        return distancetopoint
+
+
+
+
+    def executeMission(self):
+
+        #self.despega(self, altura)
+
+
+        print("Starting mission")
+        # Reset mission set to first (0) waypoint
+        self.vehicle.commands.next=0
+
+        # Set mode to AUTO to start mission
+        self.vehicle.mode = dk.VehicleMode("AUTO")
+
+        # Monitor mission. 
+        # Demonstrates getting and setting the command number 
+        # Uses distance_to_current_waypoint(), a convenience function for finding the 
+        #   distance to the next waypoint.
+
+        while True:
+            nextwaypoint = self.vehicle.commands.next
+            print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
+        
+            if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
+                print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
+                self.vehicle.commands.next = len(self.vehicle.commands)
+            if nextwaypoint==len(self.vehicle.commands): #Dummy waypoint - as soon as we reach waypoint 4 this is true and we exit.
+                print("Exit 'standard' mission when start heading to final waypoint (5)")
+                break;
+            time.sleep(1)
+
+                
+        print('Return to launch')
+        self.vehicle.mode = dk.VehicleMode("RTL")
+
+
+    def recorreArea(self, file, granularity = 25):
+        self.generateRoute(file, granularity)
+        self.executeMission()
+    
+    
 #Ángulo entre dos puntos y lat y lon dando un punto, la dist y el angulo
 #https://www.igismap.com/formula-to-find-bearing-or-heading-angle-between-two-points-latitude-longitude/
 def get_angle_from_point(point1, point2):
@@ -252,7 +336,7 @@ def estructuraPoligono(coords):
     angle_dist = []
     origin = LocationGlobal(coords[0][0], coords[0][1])
     print(origin)
-    #coords.append(coords[0])
+
     for coord in coords[1:]:
         loc = LocationGlobal(coord[0], coord[1])
         print(loc)
@@ -286,7 +370,7 @@ def checkPoligono(poligono):
     """
     return True
 
-def generaMatriz(poligono, granularidad = 10):
+def generaMatriz(poligono, granularidad = 25):
     """
     A partir de un polígono (una serie de puntos),
     procesa el polígono para saber qué cuadrado inscribe a dicho polígono
@@ -346,14 +430,14 @@ def generaPuntos(poligono, matriz):
     y = []
     print("Longitud de puntos dentro:", len(puntosDentro))
     for i, elem in enumerate(puntosDentro):
-        print("punto número ", i, "-> X:", elem.x, ", Y: ", elem.y)
+        #print("punto número ", i, "-> X:", elem.x, ", Y: ", elem.y)
         x.append(elem.x)
         y.append(elem.y)
 
-    fig, ax = plt.subplots()
-    ax.scatter(x, y)
+    #fig, ax = plt.subplots()
+    #ax.scatter(x, y)
 
-    plt.show()
+    #plt.show()
 
     return puntosReturn
 
@@ -369,9 +453,13 @@ def solveTSP(points):
     tspProblem = mlrose.TSPOpt(length = len(points), coords= points, maximize = False)
     best_state, best_fitness = mlrose.genetic_alg(tspProblem)
 
-    """
+    
     print("GENETIC. The best state found is: ", best_state)
     print("GENETIC. The fitness at the best state is: ", best_fitness)
+
+    print("CHECK: ", len(best_state), len(points))
+
+    """
 
     best_state2, best_fitness2 = mlrose.hill_climb(tspProblem)
 
@@ -396,10 +484,56 @@ def solveTSP(points):
 
     return (best_state, best_fitness)
 
-def generateWaypoints(origen, points):
+def generateWaypoints(origen, points, orderPoints):
     """
     Recibe un punto de origen (donde esté el dron), que será donde vuelva cuando acabe toda la ruta,
-    también recibe una lista de puntos y genera waypoints para poder subir la misión al dron.
+    también recibe una lista de puntos y genera las localizaciones globales para posteriormente
+    añadirlas a una misión.
     """
 
+    
+    
+    startIndex = list(orderPoints).index(0)
+    print("StartIndex: ", startIndex)
+    orderDeque = deque(orderPoints)
 
+    #Rota la lista de puntos a recorrer para dejar al origen en última posición
+    orderDeque.rotate(-startIndex - 1)
+    order = list(orderDeque)
+    print(order)
+
+    locations = []
+
+    #Por cada punto obtiene su coordenada global y crea el waypoint para añadirlo a la misión
+    for i in range(len(points)):
+        p = points[order[i]]
+        locations.append(get_location_metres(origen, p[1], p[0])) #primero va la coordenada y y luego la x
+    
+    return locations
+        
+    
+
+
+
+
+
+
+def generateRoute(pos, file, granularity):
+    """
+    Genera el recorrido que tiene que hacer para una determinada área
+    """
+
+    coordenadas = readFile(file)
+
+    poligono = estructuraPoligono(coordenadas)
+
+    #if not checkPoligono(poligono):
+    #    return "ERROR"
+    
+    matriz = generaMatriz(poligono, granularity)
+
+    puntosDentro = generaPuntos(poligono, matriz)
+
+    (ruta, coste) = solveTSP(puntosDentro)
+
+    return generateWaypoints(pos, puntosDentro, ruta)

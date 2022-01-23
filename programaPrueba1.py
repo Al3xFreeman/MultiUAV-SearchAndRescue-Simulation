@@ -6,9 +6,13 @@ from funciones import *
 
 controlador = ControladorDron()
 
+controlador.generateRoute(file = "puntosPoligono.txt", granularity = 25)
+
 #controlador.despega(controlador.vehicle, 10)
 controlador.despega(40)
 
+
+controlador.executeMission()
 #Primero hacer un sistema para mover el dron con un input por teclado (o incluso con el mando?)
 #https://stackoverflow.com/questions/46506850/how-can-i-get-input-from-an-xbox-one-controller-in-python
 
@@ -28,6 +32,8 @@ controlador.despega(40)
 # 5.1) Con la ruta que devuelve el TSP, hacer la lista de Waypoints y subírselos al dron.
 # 5.2) Si el punto inicial NO era donde estba el dron el RTL debería volver al inicio del todo.
 
+
+#controlador.recorreArea("puntosPoligonos.txt")
 
 
 
