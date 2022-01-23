@@ -12,6 +12,10 @@ from shapely.geometry import Point, Polygon
 
 from pymavlink import mavutil
 
+import datetime
+from scipy.spatial import distance_matrix
+
+
 import six
 import sys
 sys.modules['sklearn.externals.six'] = six
@@ -153,11 +157,32 @@ class ControladorDron:
 
         puntosDentro = generaPuntos(poligono, matriz)
 
+        distanceMatrix = distance_matrix(puntosDentro, puntosDentro)
+        
+        print(distanceMatrix)
+
         (ruta, coste) = solveTSP(puntosDentro)
 
         locationsGlobals = generateWaypoints(self.vehicle.location.global_frame, puntosDentro, ruta)
 
         self.createMission(locationsGlobals)
+
+
+        l = list(zip(*puntosDentro))
+        fig, ax = plt.subplots()
+        ax.scatter(l[0], l[1])
+
+        conex_x = [l[0][ruta[-1]]]
+        conex_y = [l[1][ruta[-1]]]
+
+        for i, txt in enumerate(puntosDentro):
+            ax.annotate(i, (l[0][i], l[1][i]))
+            conex_x.append(l[0][ruta[i]])
+            conex_y.append(l[1][ruta[i]])
+
+        plt.plot(conex_x, conex_y)
+
+        plt.show()
 
     
     def createMission(self, locations):
@@ -450,9 +475,17 @@ def solveTSP(points):
     Recibe una lista de puntos a recorrer y encuentra una solución óptima (o cercana a la óptima)
     para recorrer todos los puntos.
     """
-    tspProblem = mlrose.TSPOpt(length = len(points), coords= points, maximize = False)
-    best_state, best_fitness = mlrose.genetic_alg(tspProblem)
 
+    init = datetime.datetime.now()
+
+    tspProblem = mlrose.TSPOpt(length = len(points), coords= points, maximize = False)
+    best_state, best_fitness = mlrose.genetic_alg(tspProblem, mutation_prob = 0.5,
+                                              max_attempts = 1000)
+
+
+    end = datetime.datetime.now()
+
+    print("Time exec: ", (end - init).total_seconds())
     
     print("GENETIC. The best state found is: ", best_state)
     print("GENETIC. The fitness at the best state is: ", best_fitness)
