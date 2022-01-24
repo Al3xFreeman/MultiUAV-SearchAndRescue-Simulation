@@ -16,6 +16,7 @@ import datetime
 from scipy.spatial import distance_matrix
 
 
+#Para fixear mlrose
 import six
 import sys
 sys.modules['sklearn.externals.six'] = six
@@ -141,21 +142,24 @@ class ControladorDron:
 
 
 
-    def generateRoute(self, file, granularity):
+    def generateRoute(self, file, granularity, glob = False):
         """
         Genera el recorrido que tiene que hacer para una determinada área
         """
 
         coordenadas = readFile(file)
 
-        poligono = estructuraPoligono(coordenadas)
+        poligono = estructuraPoligono(coordenadas, glob)
 
-#        if not checkPoligono(poligono):
-#            return "ERROR"
+        #Comprueba si el polígono es válido
+        #if not checkPoligono(poligono):
+        #     return "ERROR"
         
-        matriz = generaMatriz(poligono, granularity)
+        matriz = generaMatriz(poligono, granularity, glob)
 
-        puntosDentro = generaPuntos(poligono, matriz)
+        #print(matriz)
+
+        puntosDentro = generaPuntos(poligono, matriz, glob)
 
         distanceMatrix = distance_matrix(puntosDentro, puntosDentro)
         
@@ -204,7 +208,6 @@ class ControladorDron:
 
         cmds.upload()
 
-
     def distance_to_current_waypoint(self):
         """
         Gets distance in metres to the current waypoint. 
@@ -220,9 +223,6 @@ class ControladorDron:
         targetWaypointLocation = LocationGlobalRelative(lat,lon,alt)
         distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
         return distancetopoint
-
-
-
 
     def executeMission(self):
 
@@ -257,7 +257,6 @@ class ControladorDron:
         print('Return to launch')
         self.vehicle.mode = dk.VehicleMode("RTL")
 
-
     def recorreArea(self, file, granularity = 25):
         self.generateRoute(file, granularity)
         self.executeMission()
@@ -271,7 +270,7 @@ def get_angle_from_point(point1, point2):
         - Dos puntos (LocationGlobal)
     Devuelve:
         - El ángulo (bearing) entre dos puntos en una superficie esférica (de punto1 a punto2)
-        - (DE MOMENTO NO) El ángulo inverso (de punto2 a punto1)
+        - El ángulo inverso (de punto2 a punto1)
         - La distancia entre ambos puntos
     """
     
@@ -288,7 +287,7 @@ def get_angle_from_point(point1, point2):
     #print("REVERSE: ", back_azimuth)
     #print("DISTANCIA: ", distance)
 
-    return (fwd_azimuth - 90, distance)
+    return (fwd_azimuth - 90, distance, back_azimuth)
 
 
 #Empezando en (0,0) obtener el punto final con un angulo y la dist
@@ -338,7 +337,7 @@ def get_distance_metres(aLocation1, aLocation2):
     dlong = aLocation2.lon - aLocation1.lon
     return math.sqrt((dlat*dlat) + (dlong*dlong)) * 1.113195e5
 
-
+#TODO Checkear distintos formatos de coordenadas
 def readFile(file):
     """
     Lee un archivo con distintos puntos que ocnforman un polígono
@@ -352,41 +351,51 @@ def readFile(file):
 
 
 
-def estructuraPoligono(coords):
+def estructuraPoligono(coords, glob = False):
     """
-    Recibe una serie de coordenadas y devuelve una serie de ordenadas y abscisas.
-    (0,0) será el primer punto del polígono.
+    Recibe una serie de coordenadas.
+
+    Si el parámetro glob es False, devuelve las coordenadas del polígono en relación al origen. (0,0) será el primer punto del polígono.
+    Si el parámetro golb es True, devuelve las coordenadas del polígono como LocationGlobal.    
     """
 
-    angle_dist = []
     origin = LocationGlobal(coords[0][0], coords[0][1])
-    print(origin)
+
+    pointsLocationGlobal = [origin]
+    angle_dist = []
 
     for coord in coords[1:]:
         loc = LocationGlobal(coord[0], coord[1])
-        print(loc)
+        pointsLocationGlobal.append(loc)
+
         angle_dist.append(get_angle_from_point(origin, loc))
 
-    for elem in angle_dist:
-        print("ANGLE DIST:", elem)
 
     points = []
-    points.append((0,0))
+    points.append((0,0)) #El origen
     for elem in angle_dist:
         points.append(get_location_dist_angle(elem[0], elem[1]))
 
-    print(points)
+
+    if glob:
+        return pointsLocationGlobal
+    else:
+        return points
+
+    """
+    Print los puntos del polígono
+
     l = list(zip(*points))
+    fig, ax = plt.subplots()
+    ax.scatter(l[0], l[1])
 
-    #fig, ax = plt.subplots()
-    #ax.scatter(l[0], l[1])
+    for i, txt in enumerate(points):
+        ax.annotate(i, (points[i][0], points[i][1]))
 
-    #for i, txt in enumerate(points):
-    #    ax.annotate(i, (points[i][0], points[i][1]))
+    plt.show()
+    """
 
-    #plt.show()
 
-    return points
 
 def checkPoligono(poligono):
     """
@@ -395,17 +404,41 @@ def checkPoligono(poligono):
     """
     return True
 
-def generaMatriz(poligono, granularidad = 25):
+#Modificado para que devuelva una serie de GlobalLocation
+def generaMatriz(poligono, granularidad = 25, glob = False):
     """
-    A partir de un polígono (una serie de puntos),
-    procesa el polígono para saber qué cuadrado inscribe a dicho polígono
+    Recibe un polígono (una serie de puntos), una granularidad y glob (que determina 
+    si se devolverán los puntos en relación a un origen o como LocationGLobal)
+
+    Procesa el polígono para saber qué cuadrado inscribe a dicho polígono
     A partir de dicho cuadrado, genera una malla de puntos, separados por la granularidad indicada.
     """
-    l = list(zip(*poligono))
-    lado_izq = min(l[0])
-    lado_derecho = max(l[0])
-    lado_abajo = min(l[1])
-    lado_arriba = max(l[1])
+
+    if glob:
+        #Obtiene todas las latitudes y longitudes y selecciona las máximas y mínimas
+        lat = []
+        lon = []
+        for elem in poligono:
+            lat.append(elem.lat)
+            lon.append(elem.lat)
+        
+        lado_izq = min(lat)
+        lado_derecho = max(lat)
+        lado_arriba = max(lon)
+        lado_abajo = min(lon)
+
+        esquina_izq_arr = LocationGlobal(lado_izq, lado_arriba)
+        esquina_izq_abajo = LocationGlobal(lado_izq, lado_abajo)
+        esquina_derecha_arr = LocationGlobal(lado_derecho, lado_arriba)
+        esquina_derecha_abajo = LocationGlobal(lado_derecho, lado_abajo)
+
+    else:
+        l = list(zip(*poligono))
+
+        lado_izq = min(l[0])
+        lado_derecho = max(l[0])
+        lado_abajo = min(l[1])
+        lado_arriba = max(l[1])
 
 
     #De momento vamos a tratar la granularidad como 3 niveles:
@@ -415,27 +448,42 @@ def generaMatriz(poligono, granularidad = 25):
     # La voy a establecer a 25m
 
     puntos = []
-    largo = abs(lado_izq - lado_derecho)
-    ancho = abs(lado_arriba - lado_abajo)
 
-    punto_x = lado_izq
-    punto_y = lado_abajo
+    #Devuelve posiciones globales
+    if glob:
+        dist_x = get_distance_metres(esquina_izq_arr, esquina_derecha_arr)
+        dist_y = get_distance_metres(esquina_izq_arr, esquina_izq_abajo)
 
-    while(punto_x < lado_derecho):
+        x = 0
+        y = 0
+
+        while x < dist_x + granularidad:
+            y = 0
+            while y < dist_y + granularidad:
+                puntos.append(get_location_metres(esquina_izq_abajo, y, x))
+                y += granularidad
+
+    #Devuelve posiciones relativas a la posición origen
+    else:
+        punto_x = lado_izq
         punto_y = lado_abajo
-        while(punto_y < lado_arriba):
-            puntos.append((punto_x, punto_y))
-            punto_y += granularidad
-        
-        punto_x += granularidad
+
+        while(punto_x < lado_derecho + granularidad):
+            punto_y = lado_abajo
+            while(punto_y < lado_arriba + granularidad):
+                puntos.append((punto_x, punto_y))
+                punto_y += granularidad
+            
+            punto_x += granularidad
+
 
     print("Total puntos: ", len(puntos))
-    
+        
     return puntos
 
 #IMPORTANTE:
     #https://automating-gis-processes.github.io/CSC18/lessons/L4/point-in-polygon.html
-def generaPuntos(poligono, matriz):
+def generaPuntos(poligono, matriz, glob):
     """
     A partir de un polígono (una serie de puntos) y una matriz,
     genera una lista de todos los puntos de la matriz que estén dentro dentro de dicho polígono.
@@ -447,24 +495,34 @@ def generaPuntos(poligono, matriz):
 
 
     for punto in matriz:
-        p = Point([punto[0], punto[1]])
+        if glob:
+            p = Point(punto.lat, punto.lon)
+        else:
+            p = Point([punto[0], punto[1]])
         if(p.within(polygonObj)):
             puntosDentro.append(p)
             puntosReturn.append(punto)
+    
+    print("Longitud de puntos dentro:", len(puntosDentro))
+    
+    return puntosReturn
+
+    """
+    #Imprime los puntos que estén dentro del polígono
     x = []
     y = []
-    print("Longitud de puntos dentro:", len(puntosDentro))
+
     for i, elem in enumerate(puntosDentro):
-        #print("punto número ", i, "-> X:", elem.x, ", Y: ", elem.y)
+        print("punto número ", i, "-> X:", elem.x, ", Y: ", elem.y)
         x.append(elem.x)
         y.append(elem.y)
 
-    #fig, ax = plt.subplots()
-    #ax.scatter(x, y)
+    fig, ax = plt.subplots()
+    ax.scatter(x, y)
 
-    #plt.show()
-
-    return puntosReturn
+    plt.show()
+    """
+    
 
 #Si lanza un Value error, atraparlo y reducir el número de puntos a la mitad
 # Así hasta que no lo de más.
@@ -570,3 +628,7 @@ def generateRoute(pos, file, granularity):
     (ruta, coste) = solveTSP(puntosDentro)
 
     return generateWaypoints(pos, puntosDentro, ruta)
+
+
+
+#def distance_matrix(puntos):
