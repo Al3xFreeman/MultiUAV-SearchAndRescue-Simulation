@@ -15,7 +15,6 @@ from pymavlink import mavutil
 import datetime
 from scipy.spatial import distance_matrix
 
-
 #Para fixear mlrose
 import six
 import sys
@@ -29,6 +28,10 @@ import matplotlib.pyplot as plt
 
 import checks
 from dronekit import LocationGlobalRelative, LocationGlobal
+
+from python_tsp.exact import solve_tsp_dynamic_programming
+from python_tsp.distances import great_circle_distance_matrix
+from python_tsp.heuristics import solve_tsp_local_search
 
 #Controlador encargado de centralizar las diversas funciones
 # del dron.
@@ -142,32 +145,37 @@ class ControladorDron:
 
 
 
-    def generateRoute(self, file, granularity, glob = False):
+    def generateRoute(self, file, granularity, glob):
         """
         Genera el recorrido que tiene que hacer para una determinada área
         """
 
+        print("Leyendo archivo")
         coordenadas = readFile(file)
 
+        print("Estrucutrando polígono")
         poligono = estructuraPoligono(coordenadas, glob)
 
         #Comprueba si el polígono es válido
         #if not checkPoligono(poligono):
         #     return "ERROR"
         
+        print("Generando matriz")
         matriz = generaMatriz(poligono, granularity, glob)
 
-        #print(matriz)
-
+        print("Calculando puntos dentro")
         puntosDentro = generaPuntos(poligono, matriz, glob)
 
-        distanceMatrix = distance_matrix(puntosDentro, puntosDentro)
+        #distanceMatrix = distance_matrix(puntosDentro, puntosDentro)
         
-        print(distanceMatrix)
+        #print(distanceMatrix)
 
-        (ruta, coste) = solveTSP(puntosDentro)
+        print("************TSP**********")
+        #(ruta, coste) = solveTSP(puntosDentro, glob)
+        (ruta, coste) = otherTSP(puntosDentro, glob)
 
-        locationsGlobals = generateWaypoints(self.vehicle.location.global_frame, puntosDentro, ruta)
+        print("Genera Waypoints")
+        locationsGlobals = generateWaypoints(self.vehicle.location.global_frame, puntosDentro, ruta, glob)
 
         self.createMission(locationsGlobals)
 
@@ -359,13 +367,15 @@ def estructuraPoligono(coords, glob = False):
     Si el parámetro golb es True, devuelve las coordenadas del polígono como LocationGlobal.    
     """
 
-    origin = LocationGlobal(coords[0][0], coords[0][1])
-
+    origin = LocationGlobal(float(coords[0][0]), float(coords[0][1]))
+    print("AAAAAAAAAAAAAAAAAAAAAAA")
+    print(origin)
+    print(type(origin.lat))
     pointsLocationGlobal = [origin]
     angle_dist = []
 
     for coord in coords[1:]:
-        loc = LocationGlobal(coord[0], coord[1])
+        loc = LocationGlobal(float(coord[0]), float(coord[1]))
         pointsLocationGlobal.append(loc)
 
         angle_dist.append(get_angle_from_point(origin, loc))
@@ -418,14 +428,18 @@ def generaMatriz(poligono, granularidad = 25, glob = False):
         #Obtiene todas las latitudes y longitudes y selecciona las máximas y mínimas
         lat = []
         lon = []
+        print("CHECK")
         for elem in poligono:
+            print(type(elem.lat))
             lat.append(elem.lat)
-            lon.append(elem.lat)
+            lon.append(elem.lon)
         
         lado_izq = min(lat)
         lado_derecho = max(lat)
         lado_arriba = max(lon)
         lado_abajo = min(lon)
+
+        print(type(lado_izq), type(lado_arriba))
 
         esquina_izq_arr = LocationGlobal(lado_izq, lado_arriba)
         esquina_izq_abajo = LocationGlobal(lado_izq, lado_abajo)
@@ -451,17 +465,21 @@ def generaMatriz(poligono, granularidad = 25, glob = False):
 
     #Devuelve posiciones globales
     if glob:
+        print(esquina_izq_arr)
+        print(esquina_derecha_arr)
+        print(type(esquina_izq_abajo))
         dist_x = get_distance_metres(esquina_izq_arr, esquina_derecha_arr)
         dist_y = get_distance_metres(esquina_izq_arr, esquina_izq_abajo)
 
         x = 0
         y = 0
-
-        while x < dist_x + granularidad:
+        print("DIST: ", dist_x, dist_y)
+        while x < (dist_x + granularidad):
             y = 0
-            while y < dist_y + granularidad:
+            while y < (dist_y + granularidad):
                 puntos.append(get_location_metres(esquina_izq_abajo, y, x))
                 y += granularidad
+            x += granularidad
 
     #Devuelve posiciones relativas a la posición origen
     else:
@@ -488,7 +506,16 @@ def generaPuntos(poligono, matriz, glob):
     A partir de un polígono (una serie de puntos) y una matriz,
     genera una lista de todos los puntos de la matriz que estén dentro dentro de dicho polígono.
     """
-    polygonObj = Polygon(poligono)
+
+    if glob:
+        print("BBBBBBBBBBBBBBBBBBB")
+        #print(poligono)
+        pol = []
+        for elem in poligono:
+            pol.append((elem.lat, elem.lon))
+        polygonObj = Polygon(pol)
+    else:
+        polygonObj = Polygon(poligono)
 
     puntosDentro = []
     puntosReturn = []
@@ -528,7 +555,7 @@ def generaPuntos(poligono, matriz, glob):
 # Así hasta que no lo de más.
 # Los puntos los reduzco de forma aleatoria, hay un 50% de posibilidades de que
 #  un punto desaparezca o no y tirando.
-def solveTSP(points):
+def solveTSP(points, glob):
     """
     Recibe una lista de puntos a recorrer y encuentra una solución óptima (o cercana a la óptima)
     para recorrer todos los puntos.
@@ -575,15 +602,48 @@ def solveTSP(points):
 
     return (best_state, best_fitness)
 
-def generateWaypoints(origen, points, orderPoints):
+
+def otherTSP(points, glob):
+
+    init = datetime.datetime.now()
+
+    if glob:
+
+        latLon = extractLatLon(points)
+
+        dist_matrix = great_circle_distance_matrix(latLon)
+
+        #ruta, coste = solve_tsp_dynamic_programming(dist_matrix)
+        ruta, coste = solve_tsp_local_search(dist_matrix)
+        print("Ruta:", ruta)
+        print("Coste: ", coste)
+
+    
+        end = datetime.datetime.now()
+
+        print("Time exec: ", (end - init).total_seconds())
+
+        return (ruta, coste)
+
+    else:
+        print("Non Global Locations not supported yet")
+
+def extractLatLon(points):
+    latLon = []
+    
+    for p in points:
+        latLon.append((p.lat, p.lon))
+
+    return np.array(latLon)
+
+
+def generateWaypoints(origen, points, orderPoints, glob):
     """
     Recibe un punto de origen (donde esté el dron), que será donde vuelva cuando acabe toda la ruta,
     también recibe una lista de puntos y genera las localizaciones globales para posteriormente
     añadirlas a una misión.
     """
 
-    
-    
     startIndex = list(orderPoints).index(0)
     print("StartIndex: ", startIndex)
     orderDeque = deque(orderPoints)
