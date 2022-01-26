@@ -244,7 +244,7 @@ class ControladorDron:
         while True:
             nextwaypoint = self.vehicle.commands.next
             print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
-        
+            print("Batería: ", self.vehicle.battery)
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
                 self.vehicle.commands.next = len(self.vehicle.commands)
