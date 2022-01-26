@@ -179,8 +179,20 @@ class ControladorDron:
 
         self.createMission(locationsGlobals)
 
+        if glob:
+            print("GLOB")
+            coord_x = []
+            coord_y = []
 
-        l = list(zip(*puntosDentro))
+            for elem in puntosDentro:
+                coord_x.append(elem.lat)
+                coord_y.append(elem.lon)
+            
+            l = [coord_x, coord_y]
+
+        else:
+            l = list(zip(*puntosDentro))
+
         fig, ax = plt.subplots()
         ax.scatter(l[0], l[1])
 
@@ -644,21 +656,36 @@ def generateWaypoints(origen, points, orderPoints, glob):
     añadirlas a una misión.
     """
 
-    startIndex = list(orderPoints).index(0)
-    print("StartIndex: ", startIndex)
-    orderDeque = deque(orderPoints)
-
-    #Rota la lista de puntos a recorrer para dejar al origen en última posición
-    orderDeque.rotate(-startIndex - 1)
-    order = list(orderDeque)
-    print(order)
-
     locations = []
 
-    #Por cada punto obtiene su coordenada global y crea el waypoint para añadirlo a la misión
-    for i in range(len(points)):
-        p = points[order[i]]
-        locations.append(get_location_metres(origen, p[1], p[0])) #primero va la coordenada y y luego la x
+    if glob:
+        print("GLOB")
+
+        #La última posición de la ruta es el origen.
+        #Lo añadiremos el primero, porque el origen del polígono
+        # no tiene por qué ser el "home" del dron.
+        locations.append(points[orderPoints[-1]]) 
+        #Points es el conjunto de puntos que está dentro del polígono
+        #Vamos eligiendo dichos puntos en función de lo que determine la ruta
+
+        for i in range(len(points)):
+            locations.append(points[orderPoints[i]])
+
+
+    else:
+        startIndex = list(orderPoints).index(0)
+        print("StartIndex: ", startIndex)
+        orderDeque = deque(orderPoints)
+
+        #Rota la lista de puntos a recorrer para dejar al origen en última posición
+        orderDeque.rotate(-startIndex - 1)
+        order = list(orderDeque)
+        print(order)
+
+        #Por cada punto obtiene su coordenada global y crea el waypoint para añadirlo a la misión
+        for i in range(len(points)):
+            p = points[order[i]]
+            locations.append(get_location_metres(origen, p[1], p[0])) #primero va la coordenada y y luego la x
     
     return locations
         

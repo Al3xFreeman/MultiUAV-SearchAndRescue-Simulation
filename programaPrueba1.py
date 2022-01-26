@@ -6,7 +6,7 @@ from funciones import *
 
 controlador = ControladorDron()
 
-controlador.generateRoute(file = "puntosPoligono.txt", granularity = 25, glob = True)
+controlador.generateRoute(file = "puntosPoligono.txt", granularity = 10, glob = True)
 
 #controlador.despega(controlador.vehicle, 10)
 controlador.despega(40)
