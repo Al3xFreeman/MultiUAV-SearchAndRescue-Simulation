@@ -1,6 +1,6 @@
 from cmath import atan, cos, sin
 from tabnanny import check
-from turtle import degrees, pu
+from turtle import color, degrees, pu
 from venv import create
 import dronekit as dk
 import dronekit_sitl as dk_sitl
@@ -31,7 +31,8 @@ from dronekit import LocationGlobalRelative, LocationGlobal
 
 from python_tsp.exact import solve_tsp_dynamic_programming
 from python_tsp.distances import great_circle_distance_matrix
-from python_tsp.heuristics import solve_tsp_local_search
+from python_tsp.heuristics import solve_tsp_local_search, solve_tsp_simulated_annealing
+
 
 #Controlador encargado de centralizar las diversas funciones
 # del dron.
@@ -49,20 +50,37 @@ class ControladorDron:
         self.parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
         self.parser.add_argument('--connect',
                             help="Vehicle connection target string. If not specified, SITL automatically started and used.")
+        self.parser.add_argument('--home',
+                            help = "Establece el punto de inicio del dron")
         args = self.parser.parse_args()
 
+        startLoc = args.home
         connection_string = args.connect
         sitl = None
 
+        """ De momento siempre empieza en simulador y listo
         # Start SITL if no connection string specified
         if not connection_string:
             import dronekit_sitl
             sitl = dronekit_sitl.start_default()
             connection_string = sitl.connection_string()
+        """
+
+        import dronekit_sitl as dk_sitl
+
+        sitl = dk_sitl.SITL()
+        sitl.download('copter', '3.3', verbose=True)
+        sitl_args = ['-IO', '--model', 'quad', '--home=40.451110, -3.732398,0,180']
+        sitl.launch(sitl_args, await_ready=True, restart=True)
+        connection_string = sitl.connection_string()
+        
+        print(sitl.instance)
 
         # Connect to the Vehicle
         print('Connecting to vehicle on: %s' % connection_string)
         self.vehicle = dk.connect(connection_string, wait_ready=True)
+
+        print(sitl.instance)
 
 
 
@@ -145,7 +163,7 @@ class ControladorDron:
 
 
 
-    def generateRoute(self, file, granularity, glob):
+    def generateRoute(self, file, granularity):
         """
         Genera el recorrido que tiene que hacer para una determinada área
         """
@@ -154,50 +172,52 @@ class ControladorDron:
         coordenadas = readFile(file)
 
         print("Estrucutrando polígono")
-        poligono = estructuraPoligono(coordenadas, glob)
+        poligono = estructuraPoligono(coordenadas)
 
         #Comprueba si el polígono es válido
         #if not checkPoligono(poligono):
         #     return "ERROR"
         
         print("Generando matriz")
-        matriz = generaMatriz(poligono, granularity, glob)
+        matriz = generaMatriz(poligono, granularity)
 
         print("Calculando puntos dentro")
-        puntosDentro = generaPuntos(poligono, matriz, glob)
-
-        #distanceMatrix = distance_matrix(puntosDentro, puntosDentro)
-        
-        #print(distanceMatrix)
+        puntosDentro = generaPuntos(poligono, matriz)
 
         print("************TSP**********")
-        #(ruta, coste) = solveTSP(puntosDentro, glob)
-        (ruta, coste) = otherTSP(puntosDentro, glob)
+        (ruta, coste) = otherTSP(puntosDentro)
 
         print("Genera Waypoints")
-        locationsGlobals = generateWaypoints(self.vehicle.location.global_frame, puntosDentro, ruta, glob)
+        locationsGlobals = generateWaypoints(puntosDentro, ruta)
 
         self.createMission(locationsGlobals)
 
-        if glob:
-            print("GLOB")
-            coord_x = []
-            coord_y = []
+        coord_x = []
+        coord_y = []
+        coord_x_pol = []
+        coord_y_pol = []
 
-            for elem in puntosDentro:
-                coord_x.append(elem.lat)
-                coord_y.append(elem.lon)
-            
-            l = [coord_x, coord_y]
+        for elem in puntosDentro:
+            coord_x.append(elem.lon)
+            coord_y.append(elem.lat)
+        
+        for elem in poligono:
+            coord_x_pol.append(elem.lon)
+            coord_y_pol.append(elem.lat)
 
-        else:
-            l = list(zip(*puntosDentro))
+        l = [coord_x, coord_y]
+        l_pol = [coord_x_pol, coord_y_pol]
+
+        #Pone la Home location en el mapa
+        #l[0].append(self.vehicle.location.global_frame.lat)
+        #l[1].append(self.vehicle.location.global_frame.lon)
 
         fig, ax = plt.subplots()
         ax.scatter(l[0], l[1])
+        ax.scatter(l_pol[0], l_pol[1], color='red')
 
-        conex_x = [l[0][ruta[-1]]]
-        conex_y = [l[1][ruta[-1]]]
+        conex_x = [l[0][ruta[-2]]]
+        conex_y = [l[1][ruta[-2]]]
 
         for i, txt in enumerate(puntosDentro):
             ax.annotate(i, (l[0][i], l[1][i]))
@@ -371,7 +391,7 @@ def readFile(file):
 
 
 
-def estructuraPoligono(coords, glob = False):
+def estructuraPoligono(coords):
     """
     Recibe una serie de coordenadas.
 
@@ -380,43 +400,34 @@ def estructuraPoligono(coords, glob = False):
     """
 
     origin = LocationGlobal(float(coords[0][0]), float(coords[0][1]))
-    print("AAAAAAAAAAAAAAAAAAAAAAA")
-    print(origin)
-    print(type(origin.lat))
+
     pointsLocationGlobal = [origin]
-    angle_dist = []
 
     for coord in coords[1:]:
         loc = LocationGlobal(float(coord[0]), float(coord[1]))
         pointsLocationGlobal.append(loc)
 
-        angle_dist.append(get_angle_from_point(origin, loc))
+    return pointsLocationGlobal
+"""
+    #Print los puntos del polígono
+    coord_x = []
+    coord_y = []
+
+    for elem in pointsLocationGlobal:
+        coord_x.append(elem.lat)
+        coord_y.append(elem.lon)
+    
+    l = [coord_x, coord_y]
 
 
-    points = []
-    points.append((0,0)) #El origen
-    for elem in angle_dist:
-        points.append(get_location_dist_angle(elem[0], elem[1]))
-
-
-    if glob:
-        return pointsLocationGlobal
-    else:
-        return points
-
-    """
-    Print los puntos del polígono
-
-    l = list(zip(*points))
     fig, ax = plt.subplots()
-    ax.scatter(l[0], l[1])
+    ax.scatter(l[0], l[1], color='red')
 
-    for i, txt in enumerate(points):
-        ax.annotate(i, (points[i][0], points[i][1]))
+    #for i, txt in enumerate(pointsLocationGlobal):
+    #    ax.annotate(i, (l[i][0], l[i][1]))
 
     plt.show()
-    """
-
+""" 
 
 
 def checkPoligono(poligono):
@@ -427,7 +438,7 @@ def checkPoligono(poligono):
     return True
 
 #Modificado para que devuelva una serie de GlobalLocation
-def generaMatriz(poligono, granularidad = 25, glob = False):
+def generaMatriz(poligono, granularidad = 25):
     """
     Recibe un polígono (una serie de puntos), una granularidad y glob (que determina 
     si se devolverán los puntos en relación a un origen o como LocationGLobal)
@@ -436,36 +447,22 @@ def generaMatriz(poligono, granularidad = 25, glob = False):
     A partir de dicho cuadrado, genera una malla de puntos, separados por la granularidad indicada.
     """
 
-    if glob:
-        #Obtiene todas las latitudes y longitudes y selecciona las máximas y mínimas
-        lat = []
-        lon = []
-        print("CHECK")
-        for elem in poligono:
-            print(type(elem.lat))
-            lat.append(elem.lat)
-            lon.append(elem.lon)
-        
-        lado_izq = min(lat)
-        lado_derecho = max(lat)
-        lado_arriba = max(lon)
-        lado_abajo = min(lon)
+    #Obtiene todas las latitudes y longitudes y selecciona las máximas y mínimas
+    lat = []
+    lon = []
+    for elem in poligono:
+        lat.append(elem.lat)
+        lon.append(elem.lon)
+    
+    lado_izq = min(lat)
+    lado_derecho = max(lat)
+    lado_arriba = max(lon)
+    lado_abajo = min(lon)
 
-        print(type(lado_izq), type(lado_arriba))
-
-        esquina_izq_arr = LocationGlobal(lado_izq, lado_arriba)
-        esquina_izq_abajo = LocationGlobal(lado_izq, lado_abajo)
-        esquina_derecha_arr = LocationGlobal(lado_derecho, lado_arriba)
-        esquina_derecha_abajo = LocationGlobal(lado_derecho, lado_abajo)
-
-    else:
-        l = list(zip(*poligono))
-
-        lado_izq = min(l[0])
-        lado_derecho = max(l[0])
-        lado_abajo = min(l[1])
-        lado_arriba = max(l[1])
-
+    esquina_izq_arr = LocationGlobal(lado_izq, lado_arriba)
+    esquina_izq_abajo = LocationGlobal(lado_izq, lado_abajo)
+    esquina_derecha_arr = LocationGlobal(lado_derecho, lado_arriba)
+    esquina_derecha_abajo = LocationGlobal(lado_derecho, lado_abajo)
 
     #De momento vamos a tratar la granularidad como 3 niveles:
     # Grande, normal y pequeña
@@ -475,170 +472,70 @@ def generaMatriz(poligono, granularidad = 25, glob = False):
 
     puntos = []
 
-    #Devuelve posiciones globales
-    if glob:
-        print(esquina_izq_arr)
-        print(esquina_derecha_arr)
-        print(type(esquina_izq_abajo))
-        dist_x = get_distance_metres(esquina_izq_arr, esquina_derecha_arr)
-        dist_y = get_distance_metres(esquina_izq_arr, esquina_izq_abajo)
+    dist_x = get_distance_metres(esquina_izq_arr, esquina_derecha_arr)
+    dist_y = get_distance_metres(esquina_izq_arr, esquina_izq_abajo)
 
-        x = 0
+    x = 0
+    y = 0
+    
+    while x < (dist_x + granularidad):
         y = 0
-        print("DIST: ", dist_x, dist_y)
-        while x < (dist_x + granularidad):
-            y = 0
-            while y < (dist_y + granularidad):
-                puntos.append(get_location_metres(esquina_izq_abajo, y, x))
-                y += granularidad
-            x += granularidad
+        while y < (dist_y + granularidad):
+            puntos.append(get_location_metres(esquina_izq_abajo, y, x))
+            y += granularidad
+        x += granularidad
 
-    #Devuelve posiciones relativas a la posición origen
-    else:
-        punto_x = lado_izq
-        punto_y = lado_abajo
-
-        while(punto_x < lado_derecho + granularidad):
-            punto_y = lado_abajo
-            while(punto_y < lado_arriba + granularidad):
-                puntos.append((punto_x, punto_y))
-                punto_y += granularidad
-            
-            punto_x += granularidad
-
-
+   
     print("Total puntos: ", len(puntos))
         
     return puntos
 
 #IMPORTANTE:
     #https://automating-gis-processes.github.io/CSC18/lessons/L4/point-in-polygon.html
-def generaPuntos(poligono, matriz, glob):
+def generaPuntos(poligono, matriz):
     """
     A partir de un polígono (una serie de puntos) y una matriz,
     genera una lista de todos los puntos de la matriz que estén dentro dentro de dicho polígono.
     """
 
-    if glob:
-        print("BBBBBBBBBBBBBBBBBBB")
-        #print(poligono)
-        pol = []
-        for elem in poligono:
-            pol.append((elem.lat, elem.lon))
-        polygonObj = Polygon(pol)
-    else:
-        polygonObj = Polygon(poligono)
-
-    puntosDentro = []
+    pol = []
+    for elem in poligono:
+        pol.append((elem.lat, elem.lon))
+    polygonObj = Polygon(pol)
+   
     puntosReturn = []
 
-
     for punto in matriz:
-        if glob:
-            p = Point(punto.lat, punto.lon)
-        else:
-            p = Point([punto[0], punto[1]])
+        p = Point(punto.lat, punto.lon)
+        
         if(p.within(polygonObj)):
-            puntosDentro.append(p)
             puntosReturn.append(punto)
     
-    print("Longitud de puntos dentro:", len(puntosDentro))
+    print("Longitud de puntos dentro:", len(puntosReturn))
     
     return puntosReturn
-
-    """
-    #Imprime los puntos que estén dentro del polígono
-    x = []
-    y = []
-
-    for i, elem in enumerate(puntosDentro):
-        print("punto número ", i, "-> X:", elem.x, ", Y: ", elem.y)
-        x.append(elem.x)
-        y.append(elem.y)
-
-    fig, ax = plt.subplots()
-    ax.scatter(x, y)
-
-    plt.show()
-    """
     
 
-#Si lanza un Value error, atraparlo y reducir el número de puntos a la mitad
-# Así hasta que no lo de más.
-# Los puntos los reduzco de forma aleatoria, hay un 50% de posibilidades de que
-#  un punto desaparezca o no y tirando.
-def solveTSP(points, glob):
-    """
-    Recibe una lista de puntos a recorrer y encuentra una solución óptima (o cercana a la óptima)
-    para recorrer todos los puntos.
-    """
+def otherTSP(points):
 
     init = datetime.datetime.now()
 
-    tspProblem = mlrose.TSPOpt(length = len(points), coords= points, maximize = False)
-    best_state, best_fitness = mlrose.genetic_alg(tspProblem, mutation_prob = 0.5,
-                                              max_attempts = 1000)
+    latLon = extractLatLon(points)
 
+    dist_matrix = great_circle_distance_matrix(latLon)
+    #dist_matrix[:, 0] = 0 #No tiene que terminar donde empieza
+    #No se aprecia ninguna diferencia, así que bastante mejor que termine donde empieza
 
+    init = datetime.datetime.now()
+    ruta, coste = solve_tsp_local_search(dist_matrix)
     end = datetime.datetime.now()
+    ruta.append(ruta[0])
+    print("Ruta:", ruta)
+    print("Coste: ", coste)
 
-    print("Time exec: ", (end - init).total_seconds())
-    
-    print("GENETIC. The best state found is: ", best_state)
-    print("GENETIC. The fitness at the best state is: ", best_fitness)
+    print("Time exec LOCAL SEARCH: ", (end - init).total_seconds())
 
-    print("CHECK: ", len(best_state), len(points))
-
-    """
-
-    best_state2, best_fitness2 = mlrose.hill_climb(tspProblem)
-
-    print("HILL CLIMB. The best state found is: ", best_state2)
-    print("HILL CLIMB. The fitness at the best state is: ", best_fitness2)
-
-    best_state3, best_fitness3 = mlrose.random_hill_climb(tspProblem)
-
-    print("RANDOM HILL CLIMB. The best state found is: ", best_state3)
-    print("RAMDOM HILL CLIMB. The fitness at the best state is: ", best_fitness3)
-
-    best_state4, best_fitness4 = mlrose.simulated_annealing(tspProblem)
-
-    print("SIMULATED ANNEALING. The best state found is: ", best_state4)
-    print("SIMULATED ANNEALING. The fitness at the best state is: ", best_fitness4)
-
-    best_state5, best_fitness5 = mlrose.mimic(tspProblem)
-
-    print("MIMIC. The best state found is: ", best_state5)
-    print("MIMIC. The fitness at the best state is: ", best_fitness5)
-    """
-
-    return (best_state, best_fitness)
-
-
-def otherTSP(points, glob):
-
-    init = datetime.datetime.now()
-
-    if glob:
-
-        latLon = extractLatLon(points)
-
-        dist_matrix = great_circle_distance_matrix(latLon)
-
-        #ruta, coste = solve_tsp_dynamic_programming(dist_matrix)
-        ruta, coste = solve_tsp_local_search(dist_matrix)
-        print("Ruta:", ruta)
-        print("Coste: ", coste)
-
-    
-        end = datetime.datetime.now()
-
-        print("Time exec: ", (end - init).total_seconds())
-
-        return (ruta, coste)
-
-    else:
-        print("Non Global Locations not supported yet")
+    return (ruta, coste)
 
 def extractLatLon(points):
     latLon = []
@@ -649,7 +546,7 @@ def extractLatLon(points):
     return np.array(latLon)
 
 
-def generateWaypoints(origen, points, orderPoints, glob):
+def generateWaypoints(points, orderPoints):
     """
     Recibe un punto de origen (donde esté el dron), que será donde vuelva cuando acabe toda la ruta,
     también recibe una lista de puntos y genera las localizaciones globales para posteriormente
@@ -658,64 +555,14 @@ def generateWaypoints(origen, points, orderPoints, glob):
 
     locations = []
 
-    if glob:
-        print("GLOB")
+    #La última posición de la ruta es el origen.
+    #Lo añadiremos el primero, porque el origen del polígono
+    # no tiene por qué ser el "home" del dron.
+    locations.append(points[orderPoints[-1]]) 
+    #Points es el conjunto de puntos que está dentro del polígono
+    #Vamos eligiendo dichos puntos en función de lo que determine la ruta
 
-        #La última posición de la ruta es el origen.
-        #Lo añadiremos el primero, porque el origen del polígono
-        # no tiene por qué ser el "home" del dron.
-        locations.append(points[orderPoints[-1]]) 
-        #Points es el conjunto de puntos que está dentro del polígono
-        #Vamos eligiendo dichos puntos en función de lo que determine la ruta
+    for i in range(len(points)):
+        locations.append(points[orderPoints[i]])
 
-        for i in range(len(points)):
-            locations.append(points[orderPoints[i]])
-
-
-    else:
-        startIndex = list(orderPoints).index(0)
-        print("StartIndex: ", startIndex)
-        orderDeque = deque(orderPoints)
-
-        #Rota la lista de puntos a recorrer para dejar al origen en última posición
-        orderDeque.rotate(-startIndex - 1)
-        order = list(orderDeque)
-        print(order)
-
-        #Por cada punto obtiene su coordenada global y crea el waypoint para añadirlo a la misión
-        for i in range(len(points)):
-            p = points[order[i]]
-            locations.append(get_location_metres(origen, p[1], p[0])) #primero va la coordenada y y luego la x
-    
     return locations
-        
-    
-
-
-
-
-
-
-def generateRoute(pos, file, granularity):
-    """
-    Genera el recorrido que tiene que hacer para una determinada área
-    """
-
-    coordenadas = readFile(file)
-
-    poligono = estructuraPoligono(coordenadas)
-
-    #if not checkPoligono(poligono):
-    #    return "ERROR"
-    
-    matriz = generaMatriz(poligono, granularity)
-
-    puntosDentro = generaPuntos(poligono, matriz)
-
-    (ruta, coste) = solveTSP(puntosDentro)
-
-    return generateWaypoints(pos, puntosDentro, ruta)
-
-
-
-#def distance_matrix(puntos):
