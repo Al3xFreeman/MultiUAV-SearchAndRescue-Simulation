@@ -1,9 +1,5 @@
-from cmath import atan, cos, sin
-from tabnanny import check
-from turtle import color, degrees, pu
-from venv import create
+from cmath import cos, sin
 import dronekit as dk
-import dronekit_sitl as dk_sitl
 import argparse
 import time
 import math
@@ -13,15 +9,6 @@ from shapely.geometry import Point, Polygon
 from pymavlink import mavutil
 
 import datetime
-from scipy.spatial import distance_matrix
-
-#Para fixear mlrose
-import six
-import sys
-sys.modules['sklearn.externals.six'] = six
-import mlrose
-
-from collections import deque
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -29,9 +16,8 @@ import matplotlib.pyplot as plt
 import checks
 from dronekit import LocationGlobalRelative, LocationGlobal
 
-from python_tsp.exact import solve_tsp_dynamic_programming
 from python_tsp.distances import great_circle_distance_matrix
-from python_tsp.heuristics import solve_tsp_local_search, solve_tsp_simulated_annealing
+from python_tsp.heuristics import solve_tsp_local_search
 
 
 #Controlador encargado de centralizar las diversas funciones

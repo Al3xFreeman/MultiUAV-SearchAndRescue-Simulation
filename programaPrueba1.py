@@ -7,7 +7,7 @@ from funciones import *
 #Ver cómo va lo de instance_count de dronekit_sitl
 controlador = ControladorDron()
 
-controlador.generateRoute(file = "puntosPoligono.txt", granularity = 15)
+controlador.generateRoute(file = "puntosPoligono.txt", granularity = 25)
 
 #controlador.despega(controlador.vehicle, 10)
 controlador.despega(40)
