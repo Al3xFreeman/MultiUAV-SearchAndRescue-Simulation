@@ -4,16 +4,28 @@ import time
 
 from funciones import *
 
-#Ver cómo va lo de instance_count de dronekit_sitl
-controlador = ControladorDron()
+#COmprobar antes si se le ha mandado connection String, si 
+#Inicia el simulador
+sim = IniciaSITL()
 
-controlador.generateRoute(file = "puntosPoligono.txt", granularity = 25)
+
+controladores = []
+#Ver cómo va lo de instance_count de dronekit_sitl
+print("CON: ", sim.getConnectionString())
+controladores.append(ControladorDron(sim.getConnectionString()))
+sim.sitl.instance += 1
+print("INSTANCIA: ", sim.sitl.instance)
+print("CON: ", sim.getConnectionString())
+controladores.append(ControladorDron(sim.getConnectionString()))
+sim.sitl.instance += 1
+print("INSTANCIA: ", sim.sitl.instance)
+points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 15)
 
 #controlador.despega(controlador.vehicle, 10)
-controlador.despega(40)
+controladores[0].despega(20)
 
 
-controlador.executeMission()
+controladores[0].executeMission(points)
 #Primero hacer un sistema para mover el dron con un input por teclado (o incluso con el mando?)
 #https://stackoverflow.com/questions/46506850/how-can-i-get-input-from-an-xbox-one-controller-in-python
 

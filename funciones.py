@@ -29,9 +29,8 @@ from python_tsp.heuristics import solve_tsp_local_search
 #Deberá ser posible, mediante una flag, controlar si estas comprobaciones se comprueban o no
 
 
-class ControladorDron:
-    def __init__(self):
-        print("Iniciando el controlador del dron")
+class IniciaSITL:
+    def __init__(self) -> None:
         
         self.parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
         self.parser.add_argument('--connect',
@@ -41,9 +40,8 @@ class ControladorDron:
         args = self.parser.parse_args()
 
         startLoc = args.home
-        connection_string = args.connect
-        sitl = None
-
+        self.connection_string = args.connect
+       
         """ De momento siempre empieza en simulador y listo
         # Start SITL if no connection string specified
         if not connection_string:
@@ -54,19 +52,35 @@ class ControladorDron:
 
         import dronekit_sitl as dk_sitl
 
-        sitl = dk_sitl.SITL()
-        sitl.download('copter', '3.3', verbose=True)
+        self.sitl = dk_sitl.SITL()
+
+        self.sitl.download('copter', '3.3', verbose=True)
         sitl_args = ['-IO', '--model', 'quad', '--home=40.451110, -3.732398,0,180']
-        sitl.launch(sitl_args, await_ready=True, restart=True)
-        connection_string = sitl.connection_string()
+        self.sitl.launch(sitl_args, await_ready=True, restart=True)
         
-        print(sitl.instance)
+    def getConnectionString(self):
+        return self.sitl.connection_string()        
 
+
+
+class ControladorDron:
+    def __init__(self, connect):
+        print("Iniciando el controlador del dron")
+        
+        self.connection_string = connect
         # Connect to the Vehicle
-        print('Connecting to vehicle on: %s' % connection_string)
-        self.vehicle = dk.connect(connection_string, wait_ready=True)
+        print('Connecting to vehicle on: %s' % self.connection_string)
+        self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
-        print(sitl.instance)
+        while not self.vehicle.home_location:
+            cmds = self.vehicle.commands
+            cmds.download()
+            cmds.wait_ready()
+            if not self.vehicle.home_location:
+                print(" Waiting for home location ...")
+            time.sleep(1)
+
+        print("HOME:", self.vehicle.home_location)
 
 
 
@@ -154,6 +168,9 @@ class ControladorDron:
         Genera el recorrido que tiene que hacer para una determinada área
         """
 
+        print("CONNECTION STRING: ", self.connection_string)
+        print("HOME: ", self.vehicle.home_location)
+
         print("Leyendo archivo")
         coordenadas = readFile(file)
 
@@ -178,42 +195,47 @@ class ControladorDron:
 
         self.createMission(locationsGlobals)
 
-        coord_x = []
-        coord_y = []
-        coord_x_pol = []
-        coord_y_pol = []
+        showGraph = False
 
-        for elem in puntosDentro:
-            coord_x.append(elem.lon)
-            coord_y.append(elem.lat)
-        
-        for elem in poligono:
-            coord_x_pol.append(elem.lon)
-            coord_y_pol.append(elem.lat)
+        if(showGraph):
 
-        l = [coord_x, coord_y]
-        l_pol = [coord_x_pol, coord_y_pol]
+            coord_x = []
+            coord_y = []
+            coord_x_pol = []
+            coord_y_pol = []
 
-        #Pone la Home location en el mapa
-        #l[0].append(self.vehicle.location.global_frame.lat)
-        #l[1].append(self.vehicle.location.global_frame.lon)
+            for elem in puntosDentro:
+                coord_x.append(elem.lon)
+                coord_y.append(elem.lat)
+            
+            for elem in poligono:
+                coord_x_pol.append(elem.lon)
+                coord_y_pol.append(elem.lat)
 
-        fig, ax = plt.subplots()
-        ax.scatter(l[0], l[1])
-        ax.scatter(l_pol[0], l_pol[1], color='red')
+            l = [coord_x, coord_y]
+            l_pol = [coord_x_pol, coord_y_pol]
 
-        conex_x = [l[0][ruta[-2]]]
-        conex_y = [l[1][ruta[-2]]]
+            #Pone la Home location en el mapa
+            #l[0].append(self.vehicle.location.global_frame.lat)
+            #l[1].append(self.vehicle.location.global_frame.lon)
 
-        for i, txt in enumerate(puntosDentro):
-            ax.annotate(i, (l[0][i], l[1][i]))
-            conex_x.append(l[0][ruta[i]])
-            conex_y.append(l[1][ruta[i]])
+            fig, ax = plt.subplots()
+            ax.scatter(l[0], l[1])
+            ax.scatter(l_pol[0], l_pol[1], color='red')
 
-        plt.plot(conex_x, conex_y)
+            conex_x = [l[0][ruta[-2]]]
+            conex_y = [l[1][ruta[-2]]]
 
-        plt.show()
+            for i, txt in enumerate(puntosDentro):
+                ax.annotate(i, (l[0][i], l[1][i]))
+                conex_x.append(l[0][ruta[i]])
+                conex_y.append(l[1][ruta[i]])
 
+            plt.plot(conex_x, conex_y)
+
+            plt.show()
+
+        return locationsGlobals
     
     def createMission(self, locations):
 
@@ -250,7 +272,7 @@ class ControladorDron:
         distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
         return distancetopoint
 
-    def executeMission(self):
+    def executeMission(self, points):
 
         #self.despega(self, altura)
 
@@ -261,16 +283,21 @@ class ControladorDron:
 
         # Set mode to AUTO to start mission
         self.vehicle.mode = dk.VehicleMode("AUTO")
-
+        self.vehicle.send_mavlink
         # Monitor mission. 
         # Demonstrates getting and setting the command number 
         # Uses distance_to_current_waypoint(), a convenience function for finding the 
         #   distance to the next waypoint.
 
+        print("Batería: ", self.vehicle.battery)
+
         while True:
             nextwaypoint = self.vehicle.commands.next
             print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
             print("Batería: ", self.vehicle.battery)
+
+            self.checkBattery(94, points)
+
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
                 self.vehicle.commands.next = len(self.vehicle.commands)
@@ -283,9 +310,50 @@ class ControladorDron:
         print('Return to launch')
         self.vehicle.mode = dk.VehicleMode("RTL")
 
+    def checkBattery(self, level, points):
+        if(self.vehicle.battery.level < level):
+            print("Batería restante baja... VOlviendo a casa para cambio de batería")
+            self.vehicle.mode = dk.VehicleMode("RTL")
+        
+            while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
+                print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
+                time.sleep(0.5)
+            
+            print("YA EN CASA")
+
+            #Guarda el estado de los comandos actual
+            cmds = self.vehicle.commands
+            cmds.download()
+            cmds.wait_ready()
+            
+            siguiente = self.vehicle.commands.next
+            
+            #for elem in cmds:
+                #print(elem)
+
+            print("CONNECTION STRING: ", self.connection_string )
+
+            #Se desconecta para simular el cambio de batería
+            self.vehicle.close()
+
+            #Se vuelve a conectar cuando tiene la nueva batería
+            print('Connecting to vehicle on: %s' % self.connection_string)
+            self.vehicle = dk.connect(self.connection_string, wait_ready=True)
+            self.createMission(locations = points)
+
+            self.vehicle.commands.next = siguiente
+
+            
+            #Continúa con la misión
+            self.vehicle.mode = dk.VehicleMode("AUTO")
+            print("Me había quedado yendo hacia el punto: ", siguiente)
+
+
+
+
     def recorreArea(self, file, granularity = 25):
-        self.generateRoute(file, granularity)
-        self.executeMission()
+        points = self.generateRoute(file, granularity)
+        self.executeMission(points)
     
     
 #Ángulo entre dos puntos y lat y lon dando un punto, la dist y el angulo
@@ -498,7 +566,7 @@ def generaPuntos(poligono, matriz):
             puntosReturn.append(punto)
     
     print("Longitud de puntos dentro:", len(puntosReturn))
-    
+
     return puntosReturn
     
 
