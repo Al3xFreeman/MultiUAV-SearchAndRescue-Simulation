@@ -32,6 +32,8 @@ from python_tsp.heuristics import solve_tsp_local_search
 class IniciaSITL:
     def __init__(self) -> None:
         
+        
+
         self.parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
         self.parser.add_argument('--connect',
                             help="Vehicle connection target string. If not specified, SITL automatically started and used.")
@@ -59,7 +61,12 @@ class IniciaSITL:
         self.sitl.launch(sitl_args, await_ready=True, restart=True)
         
     def getConnectionString(self):
-        return self.sitl.connection_string()        
+        '''returned string may be used to connect to simulated vehicle'''
+        # these are magic numbers; ArduPilot listens on ports starting
+        # at 5760+3*(instance-number)
+        port = 5760
+        port += 3 * self.instance
+        return 'tcp:127.0.0.1:' + str(port)      
 
 
 

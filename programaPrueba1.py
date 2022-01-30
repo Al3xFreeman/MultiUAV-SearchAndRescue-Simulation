@@ -9,6 +9,8 @@ from funciones import *
 sim = IniciaSITL()
 
 
+
+
 controladores = []
 #Ver cómo va lo de instance_count de dronekit_sitl
 print("CON: ", sim.getConnectionString())
@@ -16,9 +18,10 @@ controladores.append(ControladorDron(sim.getConnectionString()))
 sim.sitl.instance += 1
 print("INSTANCIA: ", sim.sitl.instance)
 print("CON: ", sim.getConnectionString())
-controladores.append(ControladorDron(sim.getConnectionString()))
-sim.sitl.instance += 1
-print("INSTANCIA: ", sim.sitl.instance)
+#controladores.append(ControladorDron(sim.getConnectionString()))
+#sim.sitl.instance += 1
+#print("INSTANCIA: ", sim.sitl.instance)
+
 points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 15)
 
 #controlador.despega(controlador.vehicle, 10)
