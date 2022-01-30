@@ -22,7 +22,11 @@ print("CON: ", sim.getConnectionString())
 #sim.sitl.instance += 1
 #print("INSTANCIA: ", sim.sitl.instance)
 
-points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 15)
+points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 10)
+
+print("LOCATIONS RETURN")
+for p in points:
+    print(p)
 
 #controlador.despega(controlador.vehicle, 10)
 controladores[0].despega(20)

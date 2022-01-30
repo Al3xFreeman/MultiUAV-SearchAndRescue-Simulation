@@ -65,7 +65,7 @@ class IniciaSITL:
         # these are magic numbers; ArduPilot listens on ports starting
         # at 5760+3*(instance-number)
         port = 5760
-        port += 3 * self.instance
+        port += 3 * self.sitl.instance
         return 'tcp:127.0.0.1:' + str(port)      
 
 
@@ -89,13 +89,7 @@ class ControladorDron:
 
         print("HOME:", self.vehicle.home_location)
 
-
-
-    #Setup del dron
-    def inicia():
-        print("Iniciado")
-
-
+        self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
 
     #Despega el dron a la altura especificada
     """
@@ -301,8 +295,13 @@ class ControladorDron:
         while True:
             nextwaypoint = self.vehicle.commands.next
             print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
-            print("Batería: ", self.vehicle.battery)
+            if self.vehicle.battery.level == None:
+                lvl = 0
+            else:
+                lvl = self.vehicle.battery.level
 
+            print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
+            
             self.checkBattery(94, points)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
@@ -318,15 +317,17 @@ class ControladorDron:
         self.vehicle.mode = dk.VehicleMode("RTL")
 
     def checkBattery(self, level, points):
-        if(self.vehicle.battery.level < level):
+        if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... VOlviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
         
             while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
                 print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
-                time.sleep(0.5)
+                time.sleep(1)
             
             print("YA EN CASA")
+
+            self.bateriasCambiadas += 1
 
             #Guarda el estado de los comandos actual
             cmds = self.vehicle.commands
@@ -335,22 +336,38 @@ class ControladorDron:
             
             siguiente = self.vehicle.commands.next
             
-            #for elem in cmds:
-                #print(elem)
 
             print("CONNECTION STRING: ", self.connection_string )
 
             #Se desconecta para simular el cambio de batería
+            print("ALTURA???", self.vehicle.location.global_frame.alt)
+            while self.vehicle.location.global_frame.alt > 0.1:
+                print("ALTURA???", self.vehicle.location.global_frame.alt)
+                time.sleep(1)
+            
+
             self.vehicle.close()
 
             #Se vuelve a conectar cuando tiene la nueva batería
+            print("VECES QUE HA IDO A RECARGAR: ", self.bateriasCambiadas)
             print('Connecting to vehicle on: %s' % self.connection_string)
             self.vehicle = dk.connect(self.connection_string, wait_ready=True)
+
+            while not self.vehicle.home_location:
+                comm = self.vehicle.commands
+                comm.download()
+                comm.wait_ready()
+                if not self.vehicle.home_location:
+                    print(" Waiting for home location ...")
+                time.sleep(1)
+
+
             self.createMission(locations = points)
 
             self.vehicle.commands.next = siguiente
-
             
+            #Vuelve a despegar
+            self.despega(20)
             #Continúa con la misión
             self.vehicle.mode = dk.VehicleMode("AUTO")
             print("Me había quedado yendo hacia el punto: ", siguiente)
