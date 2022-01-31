@@ -1,10 +1,13 @@
+from statistics import mode
 import dronekit as dk
 import dronekit_sitl as dk_sitl
 import time
 
 from funciones import *
+from generadorRutas import *
 
 from typing import List
+
 
 
 #COmprobar antes si se le ha mandado connection String, si 
@@ -13,6 +16,12 @@ sim = IniciaSITL()
 
 num_drones = 1
 controladores : List[ControladorDron] = [] 
+
+
+modo = Modos.Single
+
+generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=25, modo=modo)
+rutas = generadorRutas.generaRuta()
 
 
 for i in range(num_drones):
@@ -24,6 +33,8 @@ for i in range(num_drones):
 
 
 #Separar la generación de la ruta del funcionamiento del dron
+#Primero generar la ruta y luego ocnectar los drones.
+#   Si no, lo más probable es que se desconecten porque no reciban ningún mensaje.
 #Mandar a cada dron la parte de la ruta que debe realizar.
 #Cada dron deberá avisar cuando acabe una ruta asignada para que se le pueda asignar la siguiente.
 
