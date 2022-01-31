@@ -318,7 +318,7 @@ class ControladorDron:
 
     def checkBattery(self, level, points):
         if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
-            print("Batería restante baja... VOlviendo a casa para cambio de batería")
+            print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
         
             while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
@@ -345,7 +345,7 @@ class ControladorDron:
                 print("ALTURA???", self.vehicle.location.global_frame.alt)
                 time.sleep(1)
             
-
+            self.vehicle.mode = dk.VehicleMode("GUIDED")
             self.vehicle.close()
 
             #Se vuelve a conectar cuando tiene la nueva batería
@@ -364,19 +364,21 @@ class ControladorDron:
 
             self.createMission(locations = points)
 
-            self.vehicle.commands.next = siguiente
+            self.vehicle.commands.next = siguiente - 1
             
             #Vuelve a despegar
             self.despega(20)
             #Continúa con la misión
             self.vehicle.mode = dk.VehicleMode("AUTO")
-            print("Me había quedado yendo hacia el punto: ", siguiente)
+
+            print("Último punto visitado: ", self.vehicle.commands.next)
 
 
 
 
     def recorreArea(self, file, granularity = 25):
         points = self.generateRoute(file, granularity)
+        self.despega(20)
         self.executeMission(points)
     
     

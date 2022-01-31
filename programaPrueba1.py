@@ -4,35 +4,45 @@ import time
 
 from funciones import *
 
+from typing import List
+
+
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
 sim = IniciaSITL()
 
+num_drones = 1
+controladores : List[ControladorDron] = [] 
 
 
-
-controladores = []
-#Ver cómo va lo de instance_count de dronekit_sitl
-print("CON: ", sim.getConnectionString())
-controladores.append(ControladorDron(sim.getConnectionString()))
-sim.sitl.instance += 1
-print("INSTANCIA: ", sim.sitl.instance)
-print("CON: ", sim.getConnectionString())
-#controladores.append(ControladorDron(sim.getConnectionString()))
-#sim.sitl.instance += 1
-#print("INSTANCIA: ", sim.sitl.instance)
-
-points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 10)
-
-print("LOCATIONS RETURN")
-for p in points:
-    print(p)
-
-#controlador.despega(controlador.vehicle, 10)
-controladores[0].despega(20)
+for i in range(num_drones):
+    #Ver cómo va lo de instance_count de dronekit_sitl
+    print("CON: ", sim.getConnectionString())
+    controladores.append(ControladorDron(sim.getConnectionString()))
+    sim.sitl.instance += 1
+    print("INSTANCIA: ", sim.sitl.instance)
 
 
-controladores[0].executeMission(points)
+#Separar la generación de la ruta del funcionamiento del dron
+#Mandar a cada dron la parte de la ruta que debe realizar.
+#Cada dron deberá avisar cuando acabe una ruta asignada para que se le pueda asignar la siguiente.
+
+#Varios modos:
+#   - Single route: Una sola ruta que se divide en n trozos, siendo n el número de drones.
+#   - mTSP: Problema del viajante pero con varios vehículos, siendo n el número de drones.
+#   - Sectores: Dividir el área en sectores con el mísmo número de puntos (un número computable)
+#                y asignar a los drones los distintos sectores
+
+#Ver la diferencia de cómputo entre los 3 modos:
+#   - Single: Si son muchos puntos siempre va a ser problemátio.
+#   - mTSP: Mismo problema
+#   - Sectores: Tal vez tarda mucho en seccionar el área en n sub-áreas?
+
+controladores[0].recorreArea(file = "puntosPoligono.txt", granularity = 10)
+
+#points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 10)
+#controladores[0].executeMission(points)
+
 #Primero hacer un sistema para mover el dron con un input por teclado (o incluso con el mando?)
 #https://stackoverflow.com/questions/46506850/how-can-i-get-input-from-an-xbox-one-controller-in-python
 
@@ -51,10 +61,6 @@ controladores[0].executeMission(points)
 # 4.2) Si el punto inicial no es donde está el dron, parametrizarlo y que el dron vaya a ese punto inicial
 # 5.1) Con la ruta que devuelve el TSP, hacer la lista de Waypoints y subírselos al dron.
 # 5.2) Si el punto inicial NO era donde estba el dron el RTL debería volver al inicio del todo.
-
-
-#controlador.recorreArea("puntosPoligonos.txt")
-
 
 
 #Posteriormente investigar el tema de las misiones
