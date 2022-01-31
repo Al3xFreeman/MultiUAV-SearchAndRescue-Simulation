@@ -72,10 +72,6 @@ class GeneraRutas:
         print("Genera Waypoints")
         self.locationsGlobals = generateWaypoints(self.puntosDentro, self.ruta)
 
-        #Create a Mission and create the file
-
-        #self.createMission(self.locationsGlobals)
-            
         return [self.locationsGlobals]
 
     def genRutaMTSP(self):

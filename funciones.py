@@ -55,7 +55,7 @@ class IniciaSITL:
         self.sitl = dk_sitl.SITL()
 
         self.sitl.download('copter', '3.3', verbose=True)
-        sitl_args = ['-IO', '--model', 'quad', '--home=40.451110, -3.732398,0,180']
+        sitl_args = ['-IO', '--model', 'quad', '--home=40.453010, -3.732698,0,180']
         self.sitl.launch(sitl_args, await_ready=True, restart=True)
         
     def getConnectionString(self):
@@ -77,11 +77,21 @@ class ControladorDron:
         print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
-        self.download_mission()
-        print(" Waiting for home location", end='')
+        #self.download_mission()
+        #print(" Waiting for home location", end='')
+        #while not self.vehicle.home_location:
+        #    print('.', end='')
+        #    time.sleep(0.5)
+        print(" Waiting for home location ...", end='')
         while not self.vehicle.home_location:
-            print('.', end='')
-            time.sleep(0.5)
+            cmds = self.vehicle.commands
+            cmds.download()
+            cmds.wait_ready()
+            
+            if not self.vehicle.home_location:
+                print(".", end='')
+            time.sleep(1)
+        print("ale")
             
         print("HOME:", self.vehicle.home_location)
 
@@ -164,7 +174,6 @@ class ControladorDron:
 
         print(' Upload mission')
         self.vehicle.commands.upload()
-
     def readmission(self, aFileName):
         """
         Load a mission from a file into a list.
@@ -227,10 +236,10 @@ class ControladorDron:
         """
         cmds = self.vehicle.commands
         cmds.download()
+        print("Descargando cosis")
         cmds.wait_ready() # wait until download is complete.
 
-    
-
+#Hacer que en cuanto se suba la misión se guarde en un archivo la ruta para poder subirla en cualquier momento
     def createMission(self, locations):
 
         cmds = self.vehicle.commands
@@ -266,7 +275,7 @@ class ControladorDron:
         distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
         return distancetopoint
 
-    def executeMission(self, file):
+    def executeMission(self, locations):
 
         print("Starting mission")
         # Reset mission set to first (0) waypoint
@@ -286,7 +295,7 @@ class ControladorDron:
 
             print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(94, file)
+            self.checkBattery(80, locations)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
@@ -300,7 +309,7 @@ class ControladorDron:
         print('Return to launch')
         self.vehicle.mode = dk.VehicleMode("RTL")
 
-    def checkBattery(self, level, file):
+    def checkBattery(self, level, locations):
         if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
@@ -325,18 +334,27 @@ class ControladorDron:
 
             #Se desconecta para simular el cambio de batería
             print("ALTURA???", self.vehicle.location.global_frame.alt)
-            while self.vehicle.location.global_frame.alt > 0.1:
+            while self.vehicle.location.global_frame.alt > 0.01:
                 print("ALTURA???", self.vehicle.location.global_frame.alt)
                 time.sleep(1)
             
             self.vehicle.mode = dk.VehicleMode("GUIDED")
             self.vehicle.close()
 
+
+            print("Recargando batería")
+            time.sleep(5)
+            
+
             #Se vuelve a conectar cuando tiene la nueva batería
             print("VECES QUE HA IDO A RECARGAR: ", self.bateriasCambiadas)
             print('Connecting to vehicle on: %s' % self.connection_string)
             self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
+            self.vehicle.mode = dk.VehicleMode("GUIDED")
+
+            print("CASA Recarga: ", self.vehicle.home_location)
+            print(not self.vehicle.home_location)
             while not self.vehicle.home_location:
                 comm = self.vehicle.commands
                 comm.download()
@@ -345,8 +363,10 @@ class ControladorDron:
                     print(" Waiting for home location ...")
                 time.sleep(1)
 
+            print("CASA Recarga: ", self.vehicle.home_location)
 
-            self.uploadMissionFromFile(file)
+
+            self.createMission(locations)
 
             self.vehicle.commands.next = siguiente - 1
             
@@ -357,10 +377,11 @@ class ControladorDron:
 
             print("Último punto visitado: ", self.vehicle.commands.next)
 
-    def recorreArea(self, file):
+    def recorreArea(self, locations):
         #points = self.generateRoute(file, granularity)
+        #Hacer que el despegue sea parte de la misión
         self.despega(20)
-        self.executeMission(file)
+        self.executeMission(locations)
     
     
 #Ángulo entre dos puntos y lat y lon dando un punto, la dist y el angulo
