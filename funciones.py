@@ -240,7 +240,13 @@ class ControladorDron:
         cmds.wait_ready() # wait until download is complete.
 
 #Hacer que en cuanto se suba la misión se guarde en un archivo la ruta para poder subirla en cualquier momento
-    def createMission(self, locations):
+    def createMission(self, locations, altura = 20):
+        """
+        Crea la misión en base a los puntos generados.
+        Se puede especificar la altura a la que se ejecutará la misión con el parámetro "altura".
+        """
+
+        self.locations = locations
 
         cmds = self.vehicle.commands
 
@@ -249,7 +255,7 @@ class ControladorDron:
     
         print(" Define/add new commands.")
         #Add MAV_CMD_NAV_TAKEOFF command. This is ignored if the vehicle is already in the air.
-        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, 10))
+        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, altura))
 
         for loc in locations:
             cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, loc.lat, loc.lon, 11))
@@ -275,7 +281,7 @@ class ControladorDron:
         distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
         return distancetopoint
 
-    def executeMission(self, locations):
+    def executeMission(self):
 
         print("Starting mission")
         # Reset mission set to first (0) waypoint
@@ -295,7 +301,7 @@ class ControladorDron:
 
             print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(80, locations)
+            self.checkBattery(80)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
@@ -309,7 +315,7 @@ class ControladorDron:
         print('Return to launch')
         self.vehicle.mode = dk.VehicleMode("RTL")
 
-    def checkBattery(self, level, locations):
+    def checkBattery(self, level):
         if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
@@ -366,7 +372,7 @@ class ControladorDron:
             print("CASA Recarga: ", self.vehicle.home_location)
 
 
-            self.createMission(locations)
+            self.createMission(self.locations)
 
             self.vehicle.commands.next = siguiente - 1
             
@@ -377,11 +383,6 @@ class ControladorDron:
 
             print("Último punto visitado: ", self.vehicle.commands.next)
 
-    def recorreArea(self, locations):
-        #points = self.generateRoute(file, granularity)
-        #Hacer que el despegue sea parte de la misión
-        self.despega(20)
-        self.executeMission(locations)
     
     
 #Ángulo entre dos puntos y lat y lon dando un punto, la dist y el angulo

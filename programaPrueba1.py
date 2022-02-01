@@ -33,7 +33,7 @@ for i in range(num_drones):
 
 #Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
 controladores[0].createMission(rutas[0])
-controladores[0].recorreArea(rutas[0])
+controladores[0].executeMission()
 #Separar la generación de la ruta del funcionamiento del dron
 #Primero generar la ruta y luego ocnectar los drones.
 #   Si no, lo más probable es que se desconecten porque no reciban ningún mensaje.
