@@ -63,14 +63,15 @@ class IniciaSITL:
         # these are magic numbers; ArduPilot listens on ports starting
         # at 5760+3*(instance-number)
         port = 5760
-        port += 3 * self.sitl.instance
+        port += 10 * self.sitl.instance
         return 'tcp:127.0.0.1:' + str(port)      
 
 
 class ControladorDron:
-    def __init__(self, connect):
-        print("Iniciando el controlador del dron")
+    def __init__(self, connect, id):
+        print("Iniciando el controlador del dron con ID = ", id)
         
+        self.id = id
         self.connection_string = connect
 
         # Connect to the Vehicle

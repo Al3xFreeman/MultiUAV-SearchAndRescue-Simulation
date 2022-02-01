@@ -8,13 +8,13 @@ from generadorRutas import *
 
 from typing import List
 
-
+import math
 
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
 sim = IniciaSITL()
 
-num_drones = 1
+num_drones = 7
 controladores : List[ControladorDron] = [] 
 
 
@@ -23,17 +23,36 @@ modo = Modos.Single
 generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=25, modo=modo)
 rutas = generadorRutas.generaRuta()
 
-
-for i in range(num_drones):
-    #Ver cómo va lo de instance_count de dronekit_sitl
+def nuevoDron(id):
     print("CON: ", sim.getConnectionString())
-    controladores.append(ControladorDron(sim.getConnectionString()))
+    controladores.append(ControladorDron(sim.getConnectionString(), id))
+    #Ver cómo va lo de instance_count de dronekit_sitl
     sim.sitl.instance += 1
     print("INSTANCIA: ", sim.sitl.instance)
 
+
+for i in range(num_drones):
+    nuevoDron(i)
+
+#Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
+def divideRutaEntreDrones(numDrones, ruta):
+    segmentSize = math.ceil(len(ruta)/num_drones)
+    rutaSegmentadas = []
+
+    for i in range(numDrones):
+        desde = i*segmentSize
+        hasta = (i+1)*segmentSize
+        rutaSegmentadas.append(ruta[desde : hasta])
+
+    return rutaSegmentadas
+
+rutasMultDrones = divideRutaEntreDrones(num_drones, rutas)
+
 #Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
-controladores[0].createMission(rutas[0])
-controladores[0].executeMission()
+
+for i in range(num_drones):
+    controladores[i].createMission(rutasMultDrones[i])
+    controladores[i].executeMission()
 #Separar la generación de la ruta del funcionamiento del dron
 #Primero generar la ruta y luego ocnectar los drones.
 #   Si no, lo más probable es que se desconecten porque no reciban ningún mensaje.
