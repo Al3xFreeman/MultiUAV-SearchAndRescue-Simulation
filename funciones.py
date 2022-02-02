@@ -42,21 +42,21 @@ class IniciaSITL:
         startLoc = args.home
         self.connection_string = args.connect
        
-        """ De momento siempre empieza en simulador y listo
+        
         # Start SITL if no connection string specified
-        if not connection_string:
-            import dronekit_sitl
-            sitl = dronekit_sitl.start_default()
-            connection_string = sitl.connection_string()
-        """
+        
+        import dronekit_sitl
+        sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
+        self.connection_string = sitl.connection_string()
+ 
 
-        import dronekit_sitl as dk_sitl
+        #import dronekit_sitl as dk_sitl
 
-        self.sitl = dk_sitl.SITL()
+        #self.sitl = dk_sitl.SITL()
 
-        self.sitl.download('copter', '3.3', verbose=True)
-        sitl_args = ['-IO', '--model', 'quad', '--home=40.453010, -3.732698,0,180']
-        self.sitl.launch(sitl_args, await_ready=True, restart=True)
+        #self.sitl.download('copter', '3.3', verbose=True)
+        #sitl_args = ['-IO', '--model', 'quad', '--home=40.453010, -3.732698,0,180']
+        #self.sitl.launch(sitl_args, await_ready=True, restart=True)
         
     def getConnectionString(self):
         '''returned string may be used to connect to simulated vehicle'''

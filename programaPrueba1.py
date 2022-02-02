@@ -12,11 +12,11 @@ import math
 
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
-sim = IniciaSITL()
+
 
 num_drones = 7
 controladores : List[ControladorDron] = [] 
-
+sims : List[IniciaSITL] = []
 
 modo = Modos.Single
 
@@ -24,11 +24,13 @@ generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=25, modo=m
 rutas = generadorRutas.generaRuta()
 
 def nuevoDron(id):
-    print("CON: ", sim.getConnectionString())
-    controladores.append(ControladorDron(sim.getConnectionString(), id))
+    sim = IniciaSITL()
+    sims.append(sim)
+    print("CON: ", sim.connection_string)
+    controladores.append(ControladorDron(sim.connection_string, id))
     #Ver cómo va lo de instance_count de dronekit_sitl
-    sim.sitl.instance += 1
-    print("INSTANCIA: ", sim.sitl.instance)
+    #sim.sitl.instance += 1
+    #print("INSTANCIA: ", sim.sitl.instance)
 
 
 for i in range(num_drones):
