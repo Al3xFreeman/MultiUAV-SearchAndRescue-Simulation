@@ -14,7 +14,7 @@ import math
 #Inicia el simulador
 
 
-num_drones = 7
+num_drones = 2
 controladores : List[ControladorDron] = [] 
 sims : List[IniciaSITL] = []
 
@@ -30,7 +30,7 @@ def nuevoDron(id):
     controladores.append(ControladorDron(sim.connection_string, id))
     #Ver cómo va lo de instance_count de dronekit_sitl
     #sim.sitl.instance += 1
-    #print("INSTANCIA: ", sim.sitl.instance)
+    print("INSTANCIA: ", sim.sitl.instance)
 
 
 for i in range(num_drones):
@@ -40,7 +40,6 @@ for i in range(num_drones):
 def divideRutaEntreDrones(numDrones, ruta):
     segmentSize = math.ceil(len(ruta)/num_drones)
     rutaSegmentadas = []
-
     for i in range(numDrones):
         desde = i*segmentSize
         hasta = (i+1)*segmentSize
@@ -48,11 +47,17 @@ def divideRutaEntreDrones(numDrones, ruta):
 
     return rutaSegmentadas
 
-rutasMultDrones = divideRutaEntreDrones(num_drones, rutas)
+rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
 
 #Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
 
 for i in range(num_drones):
+
+    controladores[i].despega(20)
+
+    print("mode antes: ", controladores[i].vehicle.mode)
+    controladores[i].vehicle.mode = dk.VehicleMode("AUTO")
+    print("mode despues: ", controladores[i].vehicle.mode)
     controladores[i].createMission(rutasMultDrones[i])
     controladores[i].executeMission()
 #Separar la generación de la ruta del funcionamiento del dron
@@ -72,7 +77,7 @@ for i in range(num_drones):
 #   - mTSP: Mismo problema
 #   - Sectores: Tal vez tarda mucho en seccionar el área en n sub-áreas?
 
-controladores[0].recorreArea(file = "puntosPoligono.txt", granularity = 10)
+#controladores[0].recorreArea(file = "puntosPoligono.txt", granularity = 10)
 
 #points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 10)
 #controladores[0].executeMission(points)

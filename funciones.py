@@ -46,8 +46,8 @@ class IniciaSITL:
         # Start SITL if no connection string specified
         
         import dronekit_sitl
-        sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
-        self.connection_string = sitl.connection_string()
+        self.sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
+        self.connection_string = self.sitl.connection_string()
  
 
         #import dronekit_sitl as dk_sitl
@@ -294,6 +294,8 @@ class ControladorDron:
 
         while True:
             nextwaypoint = self.vehicle.commands.next
+            print("DRONE ID: ", self.id)
+            print("Dron pos: ", self.vehicle.location.global_frame)
             print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
             if self.vehicle.battery.level == None:
                 lvl = 0
@@ -302,7 +304,7 @@ class ControladorDron:
 
             print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(80)
+            self.checkBattery(83)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
@@ -341,7 +343,7 @@ class ControladorDron:
 
             #Se desconecta para simular el cambio de batería
             print("ALTURA???", self.vehicle.location.global_frame.alt)
-            while self.vehicle.location.global_frame.alt > 0.01:
+            while (self.vehicle.location.global_frame.alt > 0.01) and (self.vehicle.location.global_frame.alt > (self.vehicle.home_location.alt + 0.1)):
                 print("ALTURA???", self.vehicle.location.global_frame.alt)
                 time.sleep(1)
             
