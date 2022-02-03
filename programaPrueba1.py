@@ -10,6 +10,8 @@ from typing import List
 
 import math
 
+import threading
+
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
 
@@ -47,9 +49,21 @@ def nuevoDron(id):
     #sim.sitl.instance += 1
     #print("INSTANCIA: ", sim.sitl.instance)
 
-
+thread_list_start = []
 for i in range(num_drones):
-    nuevoDron(i)
+    thread = threading.Thread(target=nuevoDron, args=(i,))
+    thread_list_start.append(thread)
+
+for thread in thread_list_start:
+    thread.start()
+
+for thread in thread_list_start:
+    thread.join()
+
+
+print("TUTUTUTUTU")
+#for i in range(num_drones):
+#    nuevoDron(i)
 
 #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
 def divideRutaEntreDrones(numDrones, ruta):
@@ -64,9 +78,9 @@ def divideRutaEntreDrones(numDrones, ruta):
 
 rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
 
-#Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
 
-for i in range(num_drones):
+
+def runMission(i):
 
     controladores[i].despega(20)
 
@@ -75,6 +89,21 @@ for i in range(num_drones):
     print("mode despues: ", controladores[i].vehicle.mode)
     controladores[i].createMission(rutasMultDrones[i])
     controladores[i].executeMission()
+
+#Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
+thread_list_mission = []
+for i in range(num_drones):
+    thread = threading.Thread(target=runMission, args=(i,))
+    thread_list_mission.append(thread)
+
+for thread in thread_list_mission:
+    thread.start()
+
+for thread in thread_list_mission:
+    thread.join()
+
+
+
 #Separar la generación de la ruta del funcionamiento del dron
 #Primero generar la ruta y luego ocnectar los drones.
 #   Si no, lo más probable es que se desconecten porque no reciban ningún mensaje.

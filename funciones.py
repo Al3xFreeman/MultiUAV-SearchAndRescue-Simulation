@@ -112,7 +112,7 @@ class ControladorDron:
 
         #Espera a que llegue a la altura especificada
         #Si se mandara otra acci´pn antes de ello, se cancelaría la acción de despegar
-        checks.esperaAltura(self.vehicle, altura)
+        checks.esperaAltura(self.id, self.vehicle, altura)
 
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html
     def mueve(self, **kwargs):
