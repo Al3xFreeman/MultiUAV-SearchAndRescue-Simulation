@@ -57,13 +57,13 @@ class IniciaSITL:
 
 class ControladorDron:
     def __init__(self, connect, id):
-        print("Iniciando el controlador del dron con ID = ", id)
+        #print("ID = ", id)
         
         self.id = id
         self.connection_string = connect
 
         # Connect to the Vehicle
-        print('Connecting to vehicle on: %s' % self.connection_string)
+        #print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
         #self.download_mission()
@@ -71,18 +71,18 @@ class ControladorDron:
         #while not self.vehicle.home_location:
         #    print('.', end='')
         #    time.sleep(0.5)
-        print(" Waiting for home location ...", end='')
+        #print(" Waiting for home location ...", end='')
         while not self.vehicle.home_location:
             cmds = self.vehicle.commands
             cmds.download()
             cmds.wait_ready()
             
-            if not self.vehicle.home_location:
-                print(".", end='')
+        #    if not self.vehicle.home_location:
+        #        print(".", end='')
             time.sleep(1)
-        print("ale")
+        #print("ale")
             
-        print("HOME:", self.vehicle.home_location)
+        print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
 
         self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
         self.file = None
@@ -282,9 +282,7 @@ class ControladorDron:
 
         while True:
             nextwaypoint = self.vehicle.commands.next
-            print("DRONE ID: ", self.id)
-            print("Dron pos: ", self.vehicle.location.global_frame)
-            print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
+            print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
             if self.vehicle.battery.level == None:
                 lvl = 0
             else:
