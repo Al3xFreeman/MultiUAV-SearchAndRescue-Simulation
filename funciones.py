@@ -32,19 +32,7 @@ from typing import List
 
 class IniciaSITL:
     def __init__(self) -> None:
-        self.parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
-        self.parser.add_argument('--connect',
-                            help="Vehicle connection target string. If not specified, SITL automatically started and used.")
-        self.parser.add_argument('--home',
-                            help = "Establece el punto de inicio del dron")
-        args = self.parser.parse_args()
-
-        startLoc = args.home
-        self.connection_string = args.connect
        
-        
-        # Start SITL if no connection string specified
-        
         import dronekit_sitl
         self.sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
         self.connection_string = self.sitl.connection_string()
