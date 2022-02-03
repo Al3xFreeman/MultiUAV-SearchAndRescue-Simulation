@@ -19,10 +19,14 @@ parser.add_argument('--drones',
                         help="Cantidad de drones a utilizar.")
 args = parser.parse_args()
 
-num_drones = int(args.drones)
 
-if not num_drones:
+
+
+
+if not args.drones:
     num_drones = 12
+else:
+    num_drones = int(args.drones)
 
 print("NUMERO DE DRONES: ", num_drones)
 time.sleep(2)
@@ -38,11 +42,11 @@ rutas = generadorRutas.generaRuta()
 def nuevoDron(id):
     sim = IniciaSITL()
     sims.append(sim)
-    print("CON: ", sim.connection_string)
+    #print("CON: ", sim.connection_string)
     controladores.append(ControladorDron(sim.connection_string, id))
     #Ver cómo va lo de instance_count de dronekit_sitl
     #sim.sitl.instance += 1
-    print("INSTANCIA: ", sim.sitl.instance)
+    #print("INSTANCIA: ", sim.sitl.instance)
 
 
 for i in range(num_drones):
