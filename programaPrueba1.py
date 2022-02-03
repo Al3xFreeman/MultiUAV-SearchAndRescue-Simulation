@@ -1,29 +1,80 @@
+from statistics import mode
 import dronekit as dk
 import dronekit_sitl as dk_sitl
 import time
 
 from funciones import *
+from generadorRutas import *
 
 from typing import List
 
+import math
 
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
-sim = IniciaSITL()
 
-num_drones = 1
+
+parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
+parser.add_argument('--drones',
+                        help="Cantidad de drones a utilizar.")
+args = parser.parse_args()
+
+num_drones = args.drones
+
+if not num_drones:
+    num_drones = 12
+
+print("NUMERO DE DRONES: ", num_drones)
+time.sleep(2)
+
 controladores : List[ControladorDron] = [] 
+sims : List[IniciaSITL] = []
 
+modo = Modos.Single
 
-for i in range(num_drones):
+generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=25, modo=modo)
+rutas = generadorRutas.generaRuta()
+
+def nuevoDron(id):
+    sim = IniciaSITL()
+    sims.append(sim)
+    print("CON: ", sim.connection_string)
+    controladores.append(ControladorDron(sim.connection_string, id))
     #Ver cómo va lo de instance_count de dronekit_sitl
-    print("CON: ", sim.getConnectionString())
-    controladores.append(ControladorDron(sim.getConnectionString()))
-    sim.sitl.instance += 1
+    #sim.sitl.instance += 1
     print("INSTANCIA: ", sim.sitl.instance)
 
 
+for i in range(num_drones):
+    nuevoDron(i)
+
+#Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
+def divideRutaEntreDrones(numDrones, ruta):
+    segmentSize = math.ceil(len(ruta)/num_drones)
+    rutaSegmentadas = []
+    for i in range(numDrones):
+        desde = i*segmentSize
+        hasta = (i+1)*segmentSize
+        rutaSegmentadas.append(ruta[desde : hasta])
+
+    return rutaSegmentadas
+
+rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
+
+#Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
+
+for i in range(num_drones):
+
+    controladores[i].despega(20)
+
+    print("mode antes: ", controladores[i].vehicle.mode)
+    controladores[i].vehicle.mode = dk.VehicleMode("AUTO")
+    print("mode despues: ", controladores[i].vehicle.mode)
+    controladores[i].createMission(rutasMultDrones[i])
+    controladores[i].executeMission()
 #Separar la generación de la ruta del funcionamiento del dron
+#Primero generar la ruta y luego ocnectar los drones.
+#   Si no, lo más probable es que se desconecten porque no reciban ningún mensaje.
 #Mandar a cada dron la parte de la ruta que debe realizar.
 #Cada dron deberá avisar cuando acabe una ruta asignada para que se le pueda asignar la siguiente.
 
@@ -38,7 +89,7 @@ for i in range(num_drones):
 #   - mTSP: Mismo problema
 #   - Sectores: Tal vez tarda mucho en seccionar el área en n sub-áreas?
 
-controladores[0].recorreArea(file = "puntosPoligono.txt", granularity = 10)
+#controladores[0].recorreArea(file = "puntosPoligono.txt", granularity = 10)
 
 #points = controladores[0].generateRoute(file = "puntosPoligono.txt", granularity = 10)
 #controladores[0].executeMission(points)

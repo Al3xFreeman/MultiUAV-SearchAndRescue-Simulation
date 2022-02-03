@@ -14,11 +14,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import checks
-from dronekit import LocationGlobalRelative, LocationGlobal
+from dronekit import LocationGlobalRelative, LocationGlobal, Command
 
 from python_tsp.distances import great_circle_distance_matrix
 from python_tsp.heuristics import solve_tsp_local_search
 
+from typing import List
 
 #Controlador encargado de centralizar las diversas funciones
 # del dron.
@@ -31,9 +32,6 @@ from python_tsp.heuristics import solve_tsp_local_search
 
 class IniciaSITL:
     def __init__(self) -> None:
-        
-        
-
         self.parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
         self.parser.add_argument('--connect',
                             help="Vehicle connection target string. If not specified, SITL automatically started and used.")
@@ -44,63 +42,75 @@ class IniciaSITL:
         startLoc = args.home
         self.connection_string = args.connect
        
-        """ De momento siempre empieza en simulador y listo
+        
         # Start SITL if no connection string specified
-        if not connection_string:
-            import dronekit_sitl
-            sitl = dronekit_sitl.start_default()
-            connection_string = sitl.connection_string()
-        """
+        
+        import dronekit_sitl
+        self.sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
+        self.connection_string = self.sitl.connection_string()
+ 
 
-        import dronekit_sitl as dk_sitl
+        #import dronekit_sitl as dk_sitl
 
-        self.sitl = dk_sitl.SITL()
+        #self.sitl = dk_sitl.SITL()
 
-        self.sitl.download('copter', '3.3', verbose=True)
-        sitl_args = ['-IO', '--model', 'quad', '--home=40.451110, -3.732398,0,180']
-        self.sitl.launch(sitl_args, await_ready=True, restart=True)
+        #self.sitl.download('copter', '3.3', verbose=True)
+        #sitl_args = ['-IO', '--model', 'quad', '--home=40.453010, -3.732698,0,180']
+        #self.sitl.launch(sitl_args, await_ready=True, restart=True)
         
     def getConnectionString(self):
         '''returned string may be used to connect to simulated vehicle'''
         # these are magic numbers; ArduPilot listens on ports starting
         # at 5760+3*(instance-number)
         port = 5760
-        port += 3 * self.sitl.instance
+        port += 10 * self.sitl.instance
         return 'tcp:127.0.0.1:' + str(port)      
 
 
-
 class ControladorDron:
-    def __init__(self, connect):
-        print("Iniciando el controlador del dron")
+    def __init__(self, connect, id):
+        print("Iniciando el controlador del dron con ID = ", id)
         
+        self.id = id
         self.connection_string = connect
+
         # Connect to the Vehicle
         print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
+        #self.download_mission()
+        #print(" Waiting for home location", end='')
+        #while not self.vehicle.home_location:
+        #    print('.', end='')
+        #    time.sleep(0.5)
+        print(" Waiting for home location ...", end='')
         while not self.vehicle.home_location:
             cmds = self.vehicle.commands
             cmds.download()
             cmds.wait_ready()
+            
             if not self.vehicle.home_location:
-                print(" Waiting for home location ...")
+                print(".", end='')
             time.sleep(1)
-
+        print("ale")
+            
         print("HOME:", self.vehicle.home_location)
 
         self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
+        self.file = None
+
+    def setWPFile(self, file):
+        self.file = file
 
     #Despega el dron a la altura especificada
-    """
-    Comprobaciones:
-        - Altura es válida
-        - is_armable
-        - Modo
-        - Armado
-    """
     def despega(self, altura):
-
+        """
+            Comprobaciones:
+                - Altura es válida
+                - is_armable
+                - Modo
+                - Armado
+        """
         if(altura < 0):
             print("Error: Altura ha de ser un valor positivo")
             return
@@ -116,7 +126,6 @@ class ControladorDron:
         #Si se mandara otra acci´pn antes de ello, se cancelaría la acción de despegar
         checks.esperaAltura(self.vehicle, altura)
 
-
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html
     def mueve(self, **kwargs):
         tiempo = kwargs.get('tiempo', None) #Tiempo a moverse a la velocidad establecida
@@ -129,29 +138,98 @@ class ControladorDron:
 
 
 
-    def distance_to_current_waypoint(self):
+    def uploadMissionFromUploadedFile(self):
+        if self.file == None:
+            return "error, no existe el archivo"
+        missionList = self.readmission(self.file)
+
+        print ("\nUpload mission from a file: %s" % self.file)
+
+        #Clear existing mission from vehicle
+        print(' Clear mission')
+        cmds = self.vehicle.commands
+        cmds.clear()
+
+        #Add new mission to vehicle
+        for command in missionList:
+            cmds.add(command)
+
+        print(' Upload mission')
+        self.vehicle.commands.upload()
+
+    def uploadMissionFromFile(self, file):
+        if file == None:
+            return "error, no existe el archivo"
+        missionList = self.readmission(file)
+
+        print ("\nUpload mission from a file: %s" % file)
+
+        #Clear existing mission from vehicle
+        print(' Clear mission')
+        cmds = self.vehicle.commands
+        cmds.clear()
+
+        #Add new mission to vehicle
+        for command in missionList:
+            cmds.add(command)
+
+        print(' Upload mission')
+        self.vehicle.commands.upload()
+    def readmission(self, aFileName):
         """
-        Gets distance in metres to the current waypoint. 
-        It returns None for the first waypoint (Home location).
+        Load a mission from a file into a list.
+
+        This function is used by upload_mission().
         """
-        nextwaypoint = self.vehicle.commands.next
-        if nextwaypoint==0:
-            return None
-        missionitem=self.vehicle.commands[nextwaypoint-1] #commands are zero indexed
-        lat = missionitem.x
-        lon = missionitem.y
-        alt = missionitem.z
-        targetWaypointLocation = LocationGlobalRelative(lat,lon,alt)
-        distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
-        return distancetopoint
-        
+        print("Reading mission from file: %s\n" % aFileName)
+
+        missionlist=[]
+        with open(aFileName) as f:
+            for i, line in enumerate(f):
+                if i==0:
+                    if not line.startswith('QGC WPL 110'):
+                        raise Exception('File is not supported WP version')
+                else:
+                    linearray=line.split('\t')
+                    ln_index=int(linearray[0])
+                    ln_currentwp=int(linearray[1])
+                    ln_frame=int(linearray[2])
+                    ln_command=int(linearray[3])
+                    ln_param1=float(linearray[4])
+                    ln_param2=float(linearray[5])
+                    ln_param3=float(linearray[6])
+                    ln_param4=float(linearray[7])
+                    ln_param5=float(linearray[8])
+                    ln_param6=float(linearray[9])
+                    ln_param7=float(linearray[10])
+                    ln_autocontinue=int(linearray[11].strip())
+                    cmd = Command( 0, 0, 0, ln_frame, ln_command, ln_currentwp, ln_autocontinue, ln_param1, ln_param2, ln_param3, ln_param4, ln_param5, ln_param6, ln_param7)
+                    missionlist.append(cmd)
+        return missionlist
 
     def uploadMission(self, waypoints):
         """
         Recibe una serie de waypoints y sube la misión al dron
         """
+        cmds = self.vehicle.commands
 
+        print(" Clear any existing commands")
+        cmds.clear() 
 
+        print(" Define/add new commands.")
+
+        #Este igual lo quitamos
+        #Add MAV_CMD_NAV_TAKEOFF command. This is ignored if the vehicle is already in the air.
+        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, 10))
+
+        for wp in waypoints:
+            cmds.add(wp)
+
+        #TODO - Ver una forma de hacer esto mejor
+        #add dummy waypoint (same as the last one, lets us know when have reached destination)
+        cmds.add(cmds[-1])
+
+        cmds.upload()
 
     def download_mission(self):
         """
@@ -159,86 +237,17 @@ class ControladorDron:
         """
         cmds = self.vehicle.commands
         cmds.download()
+        print("Descargando cosis")
         cmds.wait_ready() # wait until download is complete.
 
-
-
-
-    def generateRoute(self, file, granularity):
+#Hacer que en cuanto se suba la misión se guarde en un archivo la ruta para poder subirla en cualquier momento
+    def createMission(self, locations, altura = 20):
         """
-        Genera el recorrido que tiene que hacer para una determinada área
+        Crea la misión en base a los puntos generados.
+        Se puede especificar la altura a la que se ejecutará la misión con el parámetro "altura".
         """
 
-        print("CONNECTION STRING: ", self.connection_string)
-        print("HOME: ", self.vehicle.home_location)
-
-        print("Leyendo archivo")
-        coordenadas = readFile(file)
-
-        print("Estrucutrando polígono")
-        poligono = estructuraPoligono(coordenadas)
-
-        #Comprueba si el polígono es válido
-        #if not checkPoligono(poligono):
-        #     return "ERROR"
-        
-        print("Generando matriz")
-        matriz = generaMatriz(poligono, granularity)
-
-        print("Calculando puntos dentro")
-        puntosDentro = generaPuntos(poligono, matriz)
-
-        print("************TSP**********")
-        (ruta, coste) = otherTSP(puntosDentro)
-
-        print("Genera Waypoints")
-        locationsGlobals = generateWaypoints(puntosDentro, ruta)
-
-        self.createMission(locationsGlobals)
-
-        showGraph = False
-
-        if(showGraph):
-
-            coord_x = []
-            coord_y = []
-            coord_x_pol = []
-            coord_y_pol = []
-
-            for elem in puntosDentro:
-                coord_x.append(elem.lon)
-                coord_y.append(elem.lat)
-            
-            for elem in poligono:
-                coord_x_pol.append(elem.lon)
-                coord_y_pol.append(elem.lat)
-
-            l = [coord_x, coord_y]
-            l_pol = [coord_x_pol, coord_y_pol]
-
-            #Pone la Home location en el mapa
-            #l[0].append(self.vehicle.location.global_frame.lat)
-            #l[1].append(self.vehicle.location.global_frame.lon)
-
-            fig, ax = plt.subplots()
-            ax.scatter(l[0], l[1])
-            ax.scatter(l_pol[0], l_pol[1], color='red')
-
-            conex_x = [l[0][ruta[-2]]]
-            conex_y = [l[1][ruta[-2]]]
-
-            for i, txt in enumerate(puntosDentro):
-                ax.annotate(i, (l[0][i], l[1][i]))
-                conex_x.append(l[0][ruta[i]])
-                conex_y.append(l[1][ruta[i]])
-
-            plt.plot(conex_x, conex_y)
-
-            plt.show()
-
-        return locationsGlobals
-    
-    def createMission(self, locations):
+        self.locations = locations
 
         cmds = self.vehicle.commands
 
@@ -247,7 +256,7 @@ class ControladorDron:
     
         print(" Define/add new commands.")
         #Add MAV_CMD_NAV_TAKEOFF command. This is ignored if the vehicle is already in the air.
-        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, 10))
+        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, altura))
 
         for loc in locations:
             cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, loc.lat, loc.lon, 11))
@@ -265,7 +274,7 @@ class ControladorDron:
         nextwaypoint = self.vehicle.commands.next
         if nextwaypoint==0:
             return None
-        missionitem = self.vehicle.commands[nextwaypoint-1] #commands are zero indexed
+        missionitem=self.vehicle.commands[nextwaypoint-1] #commands are zero indexed
         lat = missionitem.x
         lon = missionitem.y
         alt = missionitem.z
@@ -273,10 +282,7 @@ class ControladorDron:
         distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
         return distancetopoint
 
-    def executeMission(self, points):
-
-        #self.despega(self, altura)
-
+    def executeMission(self):
 
         print("Starting mission")
         # Reset mission set to first (0) waypoint
@@ -284,16 +290,12 @@ class ControladorDron:
 
         # Set mode to AUTO to start mission
         self.vehicle.mode = dk.VehicleMode("AUTO")
-        self.vehicle.send_mavlink
-        # Monitor mission. 
-        # Demonstrates getting and setting the command number 
-        # Uses distance_to_current_waypoint(), a convenience function for finding the 
-        #   distance to the next waypoint.
-
-        print("Batería: ", self.vehicle.battery)
+        #self.vehicle.send_mavlink #Para mandar comandos
 
         while True:
             nextwaypoint = self.vehicle.commands.next
+            print("DRONE ID: ", self.id)
+            print("Dron pos: ", self.vehicle.location.global_frame)
             print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
             if self.vehicle.battery.level == None:
                 lvl = 0
@@ -302,7 +304,7 @@ class ControladorDron:
 
             print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(94, points)
+            self.checkBattery(83)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
@@ -316,7 +318,7 @@ class ControladorDron:
         print('Return to launch')
         self.vehicle.mode = dk.VehicleMode("RTL")
 
-    def checkBattery(self, level, points):
+    def checkBattery(self, level):
         if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
@@ -341,18 +343,27 @@ class ControladorDron:
 
             #Se desconecta para simular el cambio de batería
             print("ALTURA???", self.vehicle.location.global_frame.alt)
-            while self.vehicle.location.global_frame.alt > 0.1:
+            while (self.vehicle.location.global_frame.alt > 0.01) and (self.vehicle.location.global_frame.alt > (self.vehicle.home_location.alt + 0.1)):
                 print("ALTURA???", self.vehicle.location.global_frame.alt)
                 time.sleep(1)
             
             self.vehicle.mode = dk.VehicleMode("GUIDED")
             self.vehicle.close()
 
+
+            print("Recargando batería")
+            time.sleep(5)
+            
+
             #Se vuelve a conectar cuando tiene la nueva batería
             print("VECES QUE HA IDO A RECARGAR: ", self.bateriasCambiadas)
             print('Connecting to vehicle on: %s' % self.connection_string)
             self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
+            self.vehicle.mode = dk.VehicleMode("GUIDED")
+
+            print("CASA Recarga: ", self.vehicle.home_location)
+            print(not self.vehicle.home_location)
             while not self.vehicle.home_location:
                 comm = self.vehicle.commands
                 comm.download()
@@ -361,8 +372,10 @@ class ControladorDron:
                     print(" Waiting for home location ...")
                 time.sleep(1)
 
+            print("CASA Recarga: ", self.vehicle.home_location)
 
-            self.createMission(locations = points)
+
+            self.createMission(self.locations)
 
             self.vehicle.commands.next = siguiente - 1
             
@@ -373,13 +386,6 @@ class ControladorDron:
 
             print("Último punto visitado: ", self.vehicle.commands.next)
 
-
-
-
-    def recorreArea(self, file, granularity = 25):
-        points = self.generateRoute(file, granularity)
-        self.despega(20)
-        self.executeMission(points)
     
     
 #Ángulo entre dos puntos y lat y lon dando un punto, la dist y el angulo
@@ -408,7 +414,6 @@ def get_angle_from_point(point1, point2):
     #print("DISTANCIA: ", distance)
 
     return (fwd_azimuth - 90, distance, back_azimuth)
-
 
 #Empezando en (0,0) obtener el punto final con un angulo y la dist
 #https://www.wyzant.com/resources/answers/601887/calculate-point-given-x-y-angle-and-distance#:~:text=If%20your%20starting%20point%20is,cos%CE%B8%20and%20y%20%3D%20r%20sin%CE%B8.
@@ -444,7 +449,6 @@ def get_location_metres(original_location, dNorth, dEast):
     newlon = original_location.lon + (dLon * 180/math.pi)
     return dk.LocationGlobal(newlat, newlon,original_location.alt)
 
-
 def get_distance_metres(aLocation1, aLocation2):
     """
     Returns the ground distance in metres between two LocationGlobal objects.
@@ -456,193 +460,3 @@ def get_distance_metres(aLocation1, aLocation2):
     dlat = aLocation2.lat - aLocation1.lat
     dlong = aLocation2.lon - aLocation1.lon
     return math.sqrt((dlat*dlat) + (dlong*dlong)) * 1.113195e5
-
-#TODO Checkear distintos formatos de coordenadas
-def readFile(file):
-    """
-    Lee un archivo con distintos puntos que ocnforman un polígono
-    y devuelve una serie de puntos (NO el objeto de dronekit, solo los puntos parseados, faltaría la altura)
-    """
-
-    f = open(file, "r")
-    puntos = list(map(lambda line: line.split(', '), f.readlines())) #Separa cada coordenada en lat y lon
-
-    return puntos
-
-
-
-def estructuraPoligono(coords):
-    """
-    Recibe una serie de coordenadas.
-
-    Si el parámetro glob es False, devuelve las coordenadas del polígono en relación al origen. (0,0) será el primer punto del polígono.
-    Si el parámetro golb es True, devuelve las coordenadas del polígono como LocationGlobal.    
-    """
-
-    origin = LocationGlobal(float(coords[0][0]), float(coords[0][1]))
-
-    pointsLocationGlobal = [origin]
-
-    for coord in coords[1:]:
-        loc = LocationGlobal(float(coord[0]), float(coord[1]))
-        pointsLocationGlobal.append(loc)
-
-    return pointsLocationGlobal
-"""
-    #Print los puntos del polígono
-    coord_x = []
-    coord_y = []
-
-    for elem in pointsLocationGlobal:
-        coord_x.append(elem.lat)
-        coord_y.append(elem.lon)
-    
-    l = [coord_x, coord_y]
-
-
-    fig, ax = plt.subplots()
-    ax.scatter(l[0], l[1], color='red')
-
-    #for i, txt in enumerate(pointsLocationGlobal):
-    #    ax.annotate(i, (l[i][0], l[i][1]))
-
-    plt.show()
-""" 
-
-
-def checkPoligono(poligono):
-    """
-    A partir de un polígono (una serie de puntos),
-    comprueba si es válido, es decir, si no se corta a si mismo.
-    """
-    return True
-
-#Modificado para que devuelva una serie de GlobalLocation
-def generaMatriz(poligono, granularidad = 25):
-    """
-    Recibe un polígono (una serie de puntos), una granularidad y glob (que determina 
-    si se devolverán los puntos en relación a un origen o como LocationGLobal)
-
-    Procesa el polígono para saber qué cuadrado inscribe a dicho polígono
-    A partir de dicho cuadrado, genera una malla de puntos, separados por la granularidad indicada.
-    """
-
-    #Obtiene todas las latitudes y longitudes y selecciona las máximas y mínimas
-    lat = []
-    lon = []
-    for elem in poligono:
-        lat.append(elem.lat)
-        lon.append(elem.lon)
-    
-    lado_izq = min(lat)
-    lado_derecho = max(lat)
-    lado_arriba = max(lon)
-    lado_abajo = min(lon)
-
-    esquina_izq_arr = LocationGlobal(lado_izq, lado_arriba)
-    esquina_izq_abajo = LocationGlobal(lado_izq, lado_abajo)
-    esquina_derecha_arr = LocationGlobal(lado_derecho, lado_arriba)
-    esquina_derecha_abajo = LocationGlobal(lado_derecho, lado_abajo)
-
-    #De momento vamos a tratar la granularidad como 3 niveles:
-    # Grande, normal y pequeña
-
-    # Voy a hardcodear primero la normal y luego vamos viendo el resto
-    # La voy a establecer a 25m
-
-    puntos = []
-
-    dist_x = get_distance_metres(esquina_izq_arr, esquina_derecha_arr)
-    dist_y = get_distance_metres(esquina_izq_arr, esquina_izq_abajo)
-
-    x = 0
-    y = 0
-    
-    while x < (dist_x + granularidad):
-        y = 0
-        while y < (dist_y + granularidad):
-            puntos.append(get_location_metres(esquina_izq_abajo, y, x))
-            y += granularidad
-        x += granularidad
-
-   
-    print("Total puntos: ", len(puntos))
-        
-    return puntos
-
-#IMPORTANTE:
-    #https://automating-gis-processes.github.io/CSC18/lessons/L4/point-in-polygon.html
-def generaPuntos(poligono, matriz):
-    """
-    A partir de un polígono (una serie de puntos) y una matriz,
-    genera una lista de todos los puntos de la matriz que estén dentro dentro de dicho polígono.
-    """
-
-    pol = []
-    for elem in poligono:
-        pol.append((elem.lat, elem.lon))
-    polygonObj = Polygon(pol)
-   
-    puntosReturn = []
-
-    for punto in matriz:
-        p = Point(punto.lat, punto.lon)
-        
-        if(p.within(polygonObj)):
-            puntosReturn.append(punto)
-    
-    print("Longitud de puntos dentro:", len(puntosReturn))
-
-    return puntosReturn
-    
-
-def otherTSP(points):
-
-    init = datetime.datetime.now()
-
-    latLon = extractLatLon(points)
-
-    dist_matrix = great_circle_distance_matrix(latLon)
-    #dist_matrix[:, 0] = 0 #No tiene que terminar donde empieza
-    #No se aprecia ninguna diferencia, así que bastante mejor que termine donde empieza
-
-    init = datetime.datetime.now()
-    ruta, coste = solve_tsp_local_search(dist_matrix)
-    end = datetime.datetime.now()
-    ruta.append(ruta[0])
-    print("Ruta:", ruta)
-    print("Coste: ", coste)
-
-    print("Time exec LOCAL SEARCH: ", (end - init).total_seconds())
-
-    return (ruta, coste)
-
-def extractLatLon(points):
-    latLon = []
-    
-    for p in points:
-        latLon.append((p.lat, p.lon))
-
-    return np.array(latLon)
-
-
-def generateWaypoints(points, orderPoints):
-    """
-    Recibe un punto de origen (donde esté el dron), que será donde vuelva cuando acabe toda la ruta,
-    también recibe una lista de puntos y genera las localizaciones globales para posteriormente
-    añadirlas a una misión.
-    """
-
-    locations = []
-
-    #La última posición de la ruta es el origen.
-    #Lo añadiremos el primero, porque el origen del polígono
-    # no tiene por qué ser el "home" del dron.
-    locations.append(points[orderPoints[-1]]) 
-    #Points es el conjunto de puntos que está dentro del polígono
-    #Vamos eligiendo dichos puntos en función de lo que determine la ruta
-
-    for i in range(len(points)):
-        locations.append(points[orderPoints[i]])
-
-    return locations
