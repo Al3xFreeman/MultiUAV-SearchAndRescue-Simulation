@@ -19,7 +19,7 @@ parser.add_argument('--drones',
                         help="Cantidad de drones a utilizar.")
 args = parser.parse_args()
 
-num_drones = args.drones
+num_drones = int(args.drones)
 
 if not num_drones:
     num_drones = 12
