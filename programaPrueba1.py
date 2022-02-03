@@ -14,7 +14,19 @@ import math
 #Inicia el simulador
 
 
-num_drones = 2
+parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
+parser.add_argument('--drones',
+                        help="Cantidad de drones a utilizar.")
+args = parser.parse_args()
+
+num_drones = args.drones
+
+if not num_drones:
+    num_drones = 12
+
+print("NUMERO DE DRONES: ", num_drones)
+time.sleep(2)
+
 controladores : List[ControladorDron] = [] 
 sims : List[IniciaSITL] = []
 
