@@ -72,14 +72,14 @@ class ControladorDron:
         #    print('.', end='')
         #    time.sleep(0.5)
         #print(" Waiting for home location ...", end='')
-        while not self.vehicle.home_location:
-            cmds = self.vehicle.commands
-            cmds.download()
-            cmds.wait_ready()
+        #while not self.vehicle.home_location:
+        #    cmds = self.vehicle.commands
+        #    cmds.download()
+        #    cmds.wait_ready()
             
         #    if not self.vehicle.home_location:
         #        print(".", end='')
-            time.sleep(1)
+        #    time.sleep(1)
         #print("ale")
             
         print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
@@ -308,7 +308,12 @@ class ControladorDron:
         if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
-        
+
+            while not self.vehicle.home_location:
+                cmds = self.vehicle.commands
+                cmds.download()
+                cmds.wait_ready()
+
             while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
                 print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
                 time.sleep(1)

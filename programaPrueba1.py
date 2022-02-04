@@ -12,6 +12,8 @@ import math
 
 import threading
 
+from random import randrange
+
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
 
@@ -37,14 +39,43 @@ sims : List[IniciaSITL] = []
 
 modo = Modos.Single
 
-generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=25, modo=modo)
+generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=7, modo=modo)
 rutas = generadorRutas.generaRuta()
 
+if modo == Modos.Single:
+    #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
+    def divideRutaEntreDrones(numDrones, ruta):
+        segmentSize = math.ceil(len(ruta)/num_drones)
+        rutaSegmentadas = []
+        for i in range(numDrones):
+            desde = i*segmentSize
+            hasta = (i+1)*segmentSize
+            rutaSegmentadas.append(ruta[desde : hasta])
+
+        return rutaSegmentadas
+
+    rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
+
+
 def nuevoDron(id):
+    
+    time.sleep(id)
+    print("INICIANDO DRON ID: ", id)
     sim = IniciaSITL()
     sims.append(sim)
     #print("CON: ", sim.connection_string)
-    controladores.append(ControladorDron(sim.connection_string, id))
+
+    dron = ControladorDron(sim.connection_string, id)
+
+    #controladores.append(ControladorDron(sim.connection_string, id))
+
+    dron.despega(20)
+
+    
+    dron.vehicle.mode = dk.VehicleMode("AUTO")
+    
+    dron.createMission(rutasMultDrones[i])
+    dron.executeMission()
     #Ver cómo va lo de instance_count de dronekit_sitl
     #sim.sitl.instance += 1
     #print("INSTANCIA: ", sim.sitl.instance)
@@ -65,21 +96,10 @@ print("TUTUTUTUTU")
 #for i in range(num_drones):
 #    nuevoDron(i)
 
-#Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
-def divideRutaEntreDrones(numDrones, ruta):
-    segmentSize = math.ceil(len(ruta)/num_drones)
-    rutaSegmentadas = []
-    for i in range(numDrones):
-        desde = i*segmentSize
-        hasta = (i+1)*segmentSize
-        rutaSegmentadas.append(ruta[desde : hasta])
-
-    return rutaSegmentadas
-
-rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
 
 
 
+"""
 def runMission(i):
 
     controladores[i].despega(20)
@@ -101,7 +121,7 @@ for thread in thread_list_mission:
 
 for thread in thread_list_mission:
     thread.join()
-
+"""
 
 
 #Separar la generación de la ruta del funcionamiento del dron
