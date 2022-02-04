@@ -10,19 +10,26 @@ from typing import List
 
 import math
 
+import threading
+
+from random import randrange
+
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
 
 
-parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
-parser.add_argument('--drones',
-                        help="Cantidad de drones a utilizar.")
+parser = argparse.ArgumentParser(description='Parametros pal programa')
+parser.add_argument('-D',
+                    '--drones',
+                    help="Cantidad de drones a utilizar.",
+                    required= False,
+                    default=6)
+
 args = parser.parse_args()
+
 
 num_drones = int(args.drones)
 
-if not num_drones:
-    num_drones = 12
 
 print("NUMERO DE DRONES: ", num_drones)
 time.sleep(2)
@@ -32,38 +39,68 @@ sims : List[IniciaSITL] = []
 
 modo = Modos.Single
 
-generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=25, modo=modo)
+generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=7, modo=modo)
 rutas = generadorRutas.generaRuta()
 
+if modo == Modos.Single:
+    #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
+    def divideRutaEntreDrones(numDrones, ruta):
+        segmentSize = math.ceil(len(ruta)/num_drones)
+        rutaSegmentadas = []
+        for i in range(numDrones):
+            desde = i*segmentSize
+            hasta = (i+1)*segmentSize
+            rutaSegmentadas.append(ruta[desde : hasta])
+
+        return rutaSegmentadas
+
+    rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
+
+
 def nuevoDron(id):
+    
+    time.sleep(id)
+    print("INICIANDO DRON ID: ", id)
     sim = IniciaSITL()
     sims.append(sim)
-    print("CON: ", sim.connection_string)
-    controladores.append(ControladorDron(sim.connection_string, id))
+    #print("CON: ", sim.connection_string)
+
+    dron = ControladorDron(sim.connection_string, id)
+
+    #controladores.append(ControladorDron(sim.connection_string, id))
+
+    dron.despega(20)
+
+    
+    dron.vehicle.mode = dk.VehicleMode("AUTO")
+    
+    dron.createMission(rutasMultDrones[i])
+    dron.executeMission()
     #Ver cómo va lo de instance_count de dronekit_sitl
     #sim.sitl.instance += 1
-    print("INSTANCIA: ", sim.sitl.instance)
+    #print("INSTANCIA: ", sim.sitl.instance)
 
-
+thread_list_start = []
 for i in range(num_drones):
-    nuevoDron(i)
+    thread = threading.Thread(target=nuevoDron, args=(i,))
+    thread_list_start.append(thread)
 
-#Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
-def divideRutaEntreDrones(numDrones, ruta):
-    segmentSize = math.ceil(len(ruta)/num_drones)
-    rutaSegmentadas = []
-    for i in range(numDrones):
-        desde = i*segmentSize
-        hasta = (i+1)*segmentSize
-        rutaSegmentadas.append(ruta[desde : hasta])
+for thread in thread_list_start:
+    thread.start()
 
-    return rutaSegmentadas
+for thread in thread_list_start:
+    thread.join()
 
-rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
 
-#Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
+print("TUTUTUTUTU")
+#for i in range(num_drones):
+#    nuevoDron(i)
 
-for i in range(num_drones):
+
+
+
+"""
+def runMission(i):
 
     controladores[i].despega(20)
 
@@ -72,6 +109,21 @@ for i in range(num_drones):
     print("mode despues: ", controladores[i].vehicle.mode)
     controladores[i].createMission(rutasMultDrones[i])
     controladores[i].executeMission()
+
+#Ver una forma de poder crear un archivo de la ruta en lugar de pasar los objetos de las posiciones a recorrer
+thread_list_mission = []
+for i in range(num_drones):
+    thread = threading.Thread(target=runMission, args=(i,))
+    thread_list_mission.append(thread)
+
+for thread in thread_list_mission:
+    thread.start()
+
+for thread in thread_list_mission:
+    thread.join()
+"""
+
+
 #Separar la generación de la ruta del funcionamiento del dron
 #Primero generar la ruta y luego ocnectar los drones.
 #   Si no, lo más probable es que se desconecten porque no reciban ningún mensaje.

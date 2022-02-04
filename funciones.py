@@ -32,19 +32,7 @@ from typing import List
 
 class IniciaSITL:
     def __init__(self) -> None:
-        self.parser = argparse.ArgumentParser(description='Commands vehicle using vehicle.simple_goto.')
-        self.parser.add_argument('--connect',
-                            help="Vehicle connection target string. If not specified, SITL automatically started and used.")
-        self.parser.add_argument('--home',
-                            help = "Establece el punto de inicio del dron")
-        args = self.parser.parse_args()
-
-        startLoc = args.home
-        self.connection_string = args.connect
        
-        
-        # Start SITL if no connection string specified
-        
         import dronekit_sitl
         self.sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
         self.connection_string = self.sitl.connection_string()
@@ -69,13 +57,13 @@ class IniciaSITL:
 
 class ControladorDron:
     def __init__(self, connect, id):
-        print("Iniciando el controlador del dron con ID = ", id)
+        #print("ID = ", id)
         
         self.id = id
         self.connection_string = connect
 
         # Connect to the Vehicle
-        print('Connecting to vehicle on: %s' % self.connection_string)
+        #print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
         #self.download_mission()
@@ -83,18 +71,18 @@ class ControladorDron:
         #while not self.vehicle.home_location:
         #    print('.', end='')
         #    time.sleep(0.5)
-        print(" Waiting for home location ...", end='')
-        while not self.vehicle.home_location:
-            cmds = self.vehicle.commands
-            cmds.download()
-            cmds.wait_ready()
+        #print(" Waiting for home location ...", end='')
+        #while not self.vehicle.home_location:
+        #    cmds = self.vehicle.commands
+        #    cmds.download()
+        #    cmds.wait_ready()
             
-            if not self.vehicle.home_location:
-                print(".", end='')
-            time.sleep(1)
-        print("ale")
+        #    if not self.vehicle.home_location:
+        #        print(".", end='')
+        #    time.sleep(1)
+        #print("ale")
             
-        print("HOME:", self.vehicle.home_location)
+        print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
 
         self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
         self.file = None
@@ -124,7 +112,7 @@ class ControladorDron:
 
         #Espera a que llegue a la altura especificada
         #Si se mandara otra acci´pn antes de ello, se cancelaría la acción de despegar
-        checks.esperaAltura(self.vehicle, altura)
+        checks.esperaAltura(self.id, self.vehicle, altura)
 
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html
     def mueve(self, **kwargs):
@@ -294,9 +282,7 @@ class ControladorDron:
 
         while True:
             nextwaypoint = self.vehicle.commands.next
-            print("DRONE ID: ", self.id)
-            print("Dron pos: ", self.vehicle.location.global_frame)
-            print('Distance to waypoint (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()))
+            print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
             if self.vehicle.battery.level == None:
                 lvl = 0
             else:
@@ -322,7 +308,12 @@ class ControladorDron:
         if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
-        
+
+            while not self.vehicle.home_location:
+                cmds = self.vehicle.commands
+                cmds.download()
+                cmds.wait_ready()
+
             while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
                 print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
                 time.sleep(1)
