@@ -23,7 +23,7 @@ parser.add_argument('-D',
                     '--drones',
                     help="Cantidad de drones a utilizar.",
                     required= False,
-                    default=6)
+                    default=1)
 
 args = parser.parse_args()
 
@@ -36,10 +36,11 @@ time.sleep(2)
 
 controladores : List[ControladorDron] = [] 
 sims : List[IniciaSITL] = []
+drones : List[ControladorDron] = []
 
 modo = Modos.Single
 
-generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=7, modo=modo)
+generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=15, modo=modo)
 rutas = generadorRutas.generaRuta()
 
 if modo == Modos.Single:
@@ -64,9 +65,9 @@ def nuevoDron(id):
     sim = IniciaSITL()
     sims.append(sim)
     #print("CON: ", sim.connection_string)
-
+    
     dron = ControladorDron(sim.connection_string, id)
-
+    drones.append(dron)
     #controladores.append(ControladorDron(sim.connection_string, id))
 
     dron.despega(20)
@@ -84,6 +85,20 @@ thread_list_start = []
 for i in range(num_drones):
     thread = threading.Thread(target=nuevoDron, args=(i,))
     thread_list_start.append(thread)
+
+
+def monitorDrones():
+    while(True):
+        #print("ESTO FUNCIONA?")
+        print("Obteniendo información sobre drones...")
+        for dron in drones:            
+            dron.getInfo()
+        time.sleep(5)
+
+thread = threading.Thread(target=monitorDrones)
+thread_list_start.append(thread)
+
+print(len(thread_list_start))
 
 for thread in thread_list_start:
     thread.start()

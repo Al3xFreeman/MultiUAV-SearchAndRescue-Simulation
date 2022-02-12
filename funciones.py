@@ -87,6 +87,23 @@ class ControladorDron:
         self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
         self.file = None
 
+    def getInfo(self, sep = " ||| "):
+        print_id = "ID: " + str(self.id).ljust(3)
+        if self.vehicle is not None:
+            print_wp = "Waypoint: " + str(self.vehicle._current_waypoint).ljust(3) + " de " + str(len(self.vehicle.commands)).ljust(3)
+            if self.distance_to_current_waypoint() is not None:
+                print_dist_wp = "Distancia al siguiente punto: " + str(self.distance_to_current_waypoint())
+            else:
+                print_dist_wp = ""
+
+            if self.vehicle.battery is not None:
+                print_bat = "Bateria: " + str(self.vehicle.battery.level)
+            else:
+                print_bat = ""
+
+            print(print_id, sep, print_bat, sep, print_wp, sep, print_dist_wp)
+        else:
+            print(print_id, " VEHICULO NO INICIADO")
     def setWPFile(self, file):
         self.file = file
 
@@ -282,13 +299,13 @@ class ControladorDron:
 
         while True:
             nextwaypoint = self.vehicle.commands.next
-            print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
+            #print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
             if self.vehicle.battery.level == None:
                 lvl = 0
             else:
                 lvl = self.vehicle.battery.level
 
-            print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
+            #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
             self.checkBattery(83)
 
