@@ -69,13 +69,15 @@ def nuevoDron(id):
 
     #controladores.append(ControladorDron(sim.connection_string, id))
 
-    dron.despega(20)
+    dron.despega(5)
 
-    
     dron.vehicle.mode = dk.VehicleMode("AUTO")
     
     dron.createMission(rutasMultDrones[i])
-    dron.executeMission()
+    print("Esperando a que el dron se inicie y se establezca la misión")
+    time.sleep(5)
+    print("Iniciando dron")
+    dron.iniciaDron()
     #Ver cómo va lo de instance_count de dronekit_sitl
     #sim.sitl.instance += 1
     #print("INSTANCIA: ", sim.sitl.instance)
@@ -84,6 +86,38 @@ thread_list_start = []
 for i in range(num_drones):
     thread = threading.Thread(target=nuevoDron, args=(i,))
     thread_list_start.append(thread)
+
+def allDronesFinished(drones : List[ControladorDron]):
+    for drone in drones:
+        if not drone.finished:
+            return False
+    
+    return True
+
+def monitorDrones():
+    time.sleep(30)
+    while(True):
+        #print("ESTO FUNCIONA?")
+        print("Obteniendo información sobre drones...")
+        for dron in drones:
+            print("??????????????????????????????????????", dron.id, " ||||| ", dron.finished)
+            if(not dron.finished):
+                dron.getInfo()
+            else:
+                print("Dron: ", dron.id, " ha terminado")
+
+        time.sleep(5)
+        print("Check if drones have finished")
+        if(allDronesFinished(drones)):
+            print("PUES HAN ACABADO?????")
+            break
+
+        time.sleep(5)
+
+thread = threading.Thread(target=monitorDrones)
+thread_list_start.append(thread)
+
+print("Numero de threads: ",len(thread_list_start))
 
 for thread in thread_list_start:
     thread.start()

@@ -1,4 +1,5 @@
 from cmath import cos, sin
+from concurrent.futures import thread
 import dronekit as dk
 import argparse
 import time
@@ -20,6 +21,10 @@ from python_tsp.distances import great_circle_distance_matrix
 from python_tsp.heuristics import solve_tsp_local_search
 
 from typing import List
+
+from vidDetect import *
+import threading
+
 
 #Controlador encargado de centralizar las diversas funciones
 # del dron.
@@ -61,7 +66,9 @@ class ControladorDron:
         
         self.id = id
         self.connection_string = connect
-
+        self.finished = False
+        self.continueExecution = True
+        
         # Connect to the Vehicle
         #print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
@@ -87,6 +94,65 @@ class ControladorDron:
         self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
         self.file = None
 
+       
+    def iniciaDron(self):
+         #Threads para:
+        # - La ejecución del movimiento del dron
+        # - El funcionamiento de la cámara
+        # - La comprobación de la detección
+        threadsDron = []
+        self.video = VideoDetect()
+
+        threadMission = threading.Thread(target=self.executeMission)
+        threadVideo = threading.Thread(target=self.detectaVideoThread)
+        threadDetection = threading.Thread(target=self.checkDetection)
+        
+        threadsDron.append(threadVideo)
+        threadsDron.append(threadDetection)
+        threadsDron.append(threadMission)
+
+        for i, t in enumerate(threadsDron):
+            print("THREAD: ", i)
+            t.start()
+        
+        for t in threadsDron:
+            t.join()
+
+    
+    def detectaVideoThread(self):
+        self.video.runVideoDetection()
+    
+    def checkDetection(self):
+        
+        while(not self.video.detected_cow):
+            print("No se ha encontrado a la vaca ):")
+            time.sleep(2)
+
+        print("VACA ENCONTRADA!!!")
+        time.sleep(3)
+        self.video.ejecuta_video = False
+        self.continueExecution = False
+        
+
+
+
+    def getInfo(self, sep = " ||| "):
+        print_id = "ID: " + str(self.id).ljust(3)
+        if self.vehicle is not None:
+            print_wp = "Waypoint: " + str(self.vehicle._current_waypoint).ljust(3) + " de " + str(len(self.vehicle.commands)).ljust(3)
+            if self.distance_to_current_waypoint() is not None:
+                print_dist_wp = "Distancia al siguiente punto: " + str(self.distance_to_current_waypoint())
+            else:
+                print_dist_wp = ""
+
+            if self.vehicle.battery is not None:
+                print_bat = "Bateria: " + str(self.vehicle.battery.level)
+            else:
+                print_bat = ""
+
+            print(print_id, sep, print_bat, sep, print_wp, sep, print_dist_wp)
+        else:
+            print(print_id, " VEHICULO NO INICIADO")
     def setWPFile(self, file):
         self.file = file
 
@@ -280,7 +346,7 @@ class ControladorDron:
         self.vehicle.mode = dk.VehicleMode("AUTO")
         #self.vehicle.send_mavlink #Para mandar comandos
 
-        while True:
+        while self.continueExecution:
             nextwaypoint = self.vehicle.commands.next
             print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
             if self.vehicle.battery.level == None:
@@ -290,7 +356,7 @@ class ControladorDron:
 
             print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(83)
+            self.checkBattery(83, lvl)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
@@ -300,12 +366,16 @@ class ControladorDron:
                 break;
             time.sleep(1)
 
+        if (not self.continueExecution):
+            print("La ejecución se paró por haber encontrado al objetivo")
+        
+        self.finished = True
                 
         print('Return to launch')
         self.vehicle.mode = dk.VehicleMode("RTL")
 
-    def checkBattery(self, level):
-        if((self.vehicle.battery.level + (self.bateriasCambiadas * 45))  < level):
+    def checkBattery(self, level, batlvl):
+        if((batlvl + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.vehicle.mode = dk.VehicleMode("RTL")
 
