@@ -348,13 +348,13 @@ class ControladorDron:
 
         while self.continueExecution:
             nextwaypoint = self.vehicle.commands.next
-            print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
+            #print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
             if self.vehicle.battery.level == None:
                 lvl = 0
             else:
                 lvl = self.vehicle.battery.level
 
-            print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
+            #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
             self.checkBattery(83, lvl)
 
