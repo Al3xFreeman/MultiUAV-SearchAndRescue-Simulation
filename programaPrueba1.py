@@ -21,7 +21,7 @@ from random import randrange
 parser = argparse.ArgumentParser(description='Parametros pal programa')
 parser.add_argument('-D',
                     '--drones',
-                    help="Cantidad de drones a utilizar.",
+                    help="Cantidad de drones a utilizar",
                     required= False,
                     default=1)
 
