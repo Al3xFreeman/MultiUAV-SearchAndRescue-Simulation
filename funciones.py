@@ -42,7 +42,6 @@ class IniciaSITL:
         self.sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
         self.connection_string = self.sitl.connection_string()
  
-
         #import dronekit_sitl as dk_sitl
 
         #self.sitl = dk_sitl.SITL()
@@ -91,25 +90,31 @@ class ControladorDron:
         #print("ale")
             
         print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
-
+        self.outputMode = "Normal"
         self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
         self.file = None
 
        
-    def iniciaDron(self):
+    def iniciaDron(self, camaraActivada):
          #Threads para:
         # - La ejecución del movimiento del dron
         # - El funcionamiento de la cámara
         # - La comprobación de la detección
         threadsDron = []
-        self.video = VideoDetect()
+
+        if(camaraActivada):
+            self.video = VideoDetect()
 
         threadMission = threading.Thread(target=self.executeMission)
-        threadVideo = threading.Thread(target=self.detectaVideoThread)
-        threadDetection = threading.Thread(target=self.checkDetection)
-        
-        threadsDron.append(threadVideo)
-        threadsDron.append(threadDetection)
+
+        if(camaraActivada):
+            threadVideo = threading.Thread(target=self.detectaVideoThread)
+            threadDetection = threading.Thread(target=self.checkDetection)
+
+        if(camaraActivada):
+            threadsDron.append(threadVideo)
+            threadsDron.append(threadDetection)
+
         threadsDron.append(threadMission)
 
         for i, t in enumerate(threadsDron):
@@ -142,18 +147,27 @@ class ControladorDron:
     def getInfo(self, sep = " ||| "):
         print_id = "ID: " + str(self.id).ljust(3)
         if self.vehicle is not None:
-            print_wp = "Waypoint: " + str(self.vehicle._current_waypoint).ljust(3) + " de " + str(len(self.vehicle.commands)).ljust(3)
-            if self.distance_to_current_waypoint() is not None:
-                print_dist_wp = "Distancia al siguiente punto: " + str(self.distance_to_current_waypoint())
-            else:
-                print_dist_wp = ""
+            #print("QUE ES VEHICULO???", self.vehicle)
+            if(self.outputMode == "RTL"):
+                print_mode = "Modo: " + self.vehicle.mode.name
+                print(print_id, sep, print_mode)
+                
+            elif(self.outputMode == "Normal"):
+                print_mode = "Modo: " + self.vehicle.mode.name
+                print_wp = "Waypoint: " + str(self.vehicle._current_waypoint).ljust(3) + " de " + str(len(self.vehicle.commands)).ljust(3)
+                if self.distance_to_current_waypoint() is not None:
+                    print_dist_wp = "Distancia al siguiente punto: " + str(self.distance_to_current_waypoint())
+                else:
+                    print_dist_wp = ""
 
-            if self.vehicle.battery is not None:
-                print_bat = "Bateria: " + str(self.vehicle.battery.level)
-            else:
-                print_bat = ""
+                if self.vehicle.battery is not None:
+                    print_bat = "Bateria: " + str(self.vehicle.battery.level)
+                else:
+                    print_bat = ""
 
-            print(print_id, sep, print_bat, sep, print_wp, sep, print_dist_wp)
+                print(print_id, sep, print_mode, sep, print_bat, sep, print_wp, sep, print_dist_wp)
+            else:
+                print(print_id, sep, print_mode, sep, "Mira no sé qué poner", sep)
         else:
             print(print_id, " VEHICULO NO INICIADO")
     def setWPFile(self, file):
@@ -346,6 +360,7 @@ class ControladorDron:
         self.vehicle.commands.next=0
 
         # Set mode to AUTO to start mission
+        self.outputMode = "Normal"
         self.vehicle.mode = dk.VehicleMode("AUTO")
         #self.vehicle.send_mavlink #Para mandar comandos
 
@@ -359,7 +374,7 @@ class ControladorDron:
 
             #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(83, lvl)
+            self.checkBattery(89, lvl)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
@@ -375,11 +390,13 @@ class ControladorDron:
         self.finished = True
                 
         print('Return to launch')
+        self.outputMode = "RTL"
         self.vehicle.mode = dk.VehicleMode("RTL")
 
     def checkBattery(self, level, batlvl):
         if((batlvl + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
+            self.outputMode = "RTL"
             self.vehicle.mode = dk.VehicleMode("RTL")
 
             while not self.vehicle.home_location:
@@ -406,11 +423,11 @@ class ControladorDron:
             print("CONNECTION STRING: ", self.connection_string )
 
             #Se desconecta para simular el cambio de batería
-            print("ALTURA???", self.vehicle.location.global_frame.alt)
+            #print("ALTURA???", self.vehicle.location.global_frame.alt)
             while (self.vehicle.location.global_frame.alt > 0.01) and (self.vehicle.location.global_frame.alt > (self.vehicle.home_location.alt + 0.1)):
-                print("ALTURA???", self.vehicle.location.global_frame.alt)
+                #print("ALTURA???", self.vehicle.location.global_frame.alt)
                 time.sleep(1)
-            
+            self.outputMode = "Normal"
             self.vehicle.mode = dk.VehicleMode("GUIDED")
             self.vehicle.close()
 
@@ -423,7 +440,7 @@ class ControladorDron:
             print("VECES QUE HA IDO A RECARGAR: ", self.bateriasCambiadas)
             print('Connecting to vehicle on: %s' % self.connection_string)
             self.vehicle = dk.connect(self.connection_string, wait_ready=True)
-
+            self.outputMode = "Normal"
             self.vehicle.mode = dk.VehicleMode("GUIDED")
 
             print("CASA Recarga: ", self.vehicle.home_location)
@@ -446,6 +463,7 @@ class ControladorDron:
             #Vuelve a despegar
             self.despega(20)
             #Continúa con la misión
+            self.outputMode = "Normal"
             self.vehicle.mode = dk.VehicleMode("AUTO")
 
             print("Último punto visitado: ", self.vehicle.commands.next)

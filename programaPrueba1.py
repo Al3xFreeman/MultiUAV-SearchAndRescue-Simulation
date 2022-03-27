@@ -62,10 +62,9 @@ if modo == Modos.Single:
 
     rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
 
-
-def nuevoDron(id):
-    
-    time.sleep(id)
+def nuevoDron(id, camaraActivada):
+    global soloUnaCamara
+    time.sleep(id + 5)
     print("INICIANDO DRON ID: ", id)
     sim = IniciaSITL()
     sims.append(sim)
@@ -83,14 +82,17 @@ def nuevoDron(id):
     print("Esperando a que el dron se inicie y se establezca la misión")
     time.sleep(5)
     print("Iniciando dron")
-    dron.iniciaDron()
+    dron.iniciaDron(camaraActivada)
     #Ver cómo va lo de instance_count de dronekit_sitl
     #sim.sitl.instance += 1
     #print("INSTANCIA: ", sim.sitl.instance)
 
 thread_list_start = []
+camaraActivada = True
+
 for i in range(num_drones):
-    thread = threading.Thread(target=nuevoDron, args=(i,))
+    thread = threading.Thread(target=nuevoDron, args=(i,camaraActivada))
+    camaraActivada = False
     thread_list_start.append(thread)
 
 def allDronesFinished(drones : List[ControladorDron]):
@@ -148,10 +150,12 @@ def monitorDrones():
                 print("Objetivo se encuentra en la posición: ", posicionObjetivo)
             else:
                 print(" *** FRACASO ***")
+            
+            print("**************************************************************************")
             break
         
         print("**************************************************************************")
-        time.sleep(5)
+        time.sleep(0.2)
 
 thread = threading.Thread(target=monitorDrones)
 thread_list_start.append(thread)
