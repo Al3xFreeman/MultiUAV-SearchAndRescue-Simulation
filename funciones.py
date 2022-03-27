@@ -68,6 +68,7 @@ class ControladorDron:
         self.connection_string = connect
         self.finished = False
         self.continueExecution = True
+        self.posicionObjetivo = None
         
         # Connect to the Vehicle
         #print('Connecting to vehicle on: %s' % self.connection_string)
@@ -125,11 +126,13 @@ class ControladorDron:
     def checkDetection(self):
         
         while(not self.video.detected_cow):
-            print("No se ha encontrado a la vaca ):")
+            #print("No se ha encontrado a la vaca ):")
             time.sleep(2)
+            pass
 
         print("VACA ENCONTRADA!!!")
-        time.sleep(3)
+        time.sleep(0.3)
+        self.posicionObjetivo = self.vehicle.location.global_frame
         self.video.ejecuta_video = False
         self.continueExecution = False
         

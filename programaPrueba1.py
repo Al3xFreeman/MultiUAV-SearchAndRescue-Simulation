@@ -40,6 +40,11 @@ drones : List[ControladorDron] = []
 
 modo = Modos.Single
 
+objetivoDetectado = False
+
+print("VALRO DE OBJETIVO DETECTADO: ", objetivoDetectado)
+posicionObjetivo = None
+
 generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=15, modo=modo)
 rutas = generadorRutas.generaRuta()
 
@@ -96,23 +101,56 @@ def allDronesFinished(drones : List[ControladorDron]):
     return True
 
 def monitorDrones():
+    global objetivoDetectado
     time.sleep(30)
     while(True):
-        #print("ESTO FUNCIONA?")
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
+        print("**************************************************************************")
         print("Obteniendo información sobre drones...")
         for dron in drones:
-            print("??????????????????????????????????????", dron.id, " ||||| ", dron.finished)
             if(not dron.finished):
                 dron.getInfo()
             else:
                 print("Dron: ", dron.id, " ha terminado")
 
-        time.sleep(5)
+            if(not dron.continueExecution):
+                objetivoDetectado = True
+                posicionObjetivo = dron.posicionObjetivo
+                print("Procediendo a terminar la ejecución del resto de drones")
+                for d in drones:
+                    d.finished = True
+                    d.continueExecution = False
+        
+        if(not objetivoDetectado):
+            print()
+            print("----------------------")
+            print()
+            print("Objetivo NO encontrado")
+            print()
+            print("----------------------")
+        
+
         print("Check if drones have finished")
         if(allDronesFinished(drones)):
-            print("PUES HAN ACABADO?????")
+            print("Todos los drones han terminado.")
+            print("El resultado de la búsqueda ha sido: ", end="")
+            if objetivoDetectado:
+                print(" ***** ÉXITO ***** ")
+                print("Objetivo se encuentra en la posición: ", posicionObjetivo)
+            else:
+                print(" *** FRACASO ***")
             break
-
+        
+        print("**************************************************************************")
         time.sleep(5)
 
 thread = threading.Thread(target=monitorDrones)
