@@ -147,13 +147,13 @@ class ControladorDron:
     def getInfo(self, sep = " ||| "):
         print_id = "ID: " + str(self.id).ljust(3)
         if self.vehicle is not None:
-            #print("QUE ES VEHICULO???", self.vehicle)
-            if(self.outputMode == "RTL"):
-                print_mode = "Modo: " + self.vehicle.mode.name
+            #print("OUTPURMODE: ", self.outputMode)
+            print_mode = "Modo: " + self.vehicle.mode.name
+            if(self.vehicle.mode.name == "RTL"):
+                
                 print(print_id, sep, print_mode)
                 
-            elif(self.outputMode == "Normal"):
-                print_mode = "Modo: " + self.vehicle.mode.name
+            elif(self.vehicle.mode.name == "AUTO" or self.vehicle.mode.name == "GUIDED"):
                 print_wp = "Waypoint: " + str(self.vehicle._current_waypoint).ljust(3) + " de " + str(len(self.vehicle.commands)).ljust(3)
                 if self.distance_to_current_waypoint() is not None:
                     print_dist_wp = "Distancia al siguiente punto: " + str(self.distance_to_current_waypoint())
@@ -374,7 +374,7 @@ class ControladorDron:
 
             #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(89, lvl)
+            self.checkBattery(83, lvl)
 
             if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
                 print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
