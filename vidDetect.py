@@ -11,7 +11,7 @@ class VideoDetect:
         self.detected_cow = False
         self.ejecuta_video = True
 
-        self.limitConf = 0.2
+        self.limitConf = 0.8
         self.prototxt = 'deploy.prototxt'
         self.caffemodel = 'mobilenet_iter_73000.caffemodel'
 
