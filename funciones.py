@@ -58,11 +58,14 @@ class IniciaSITL:
         port += 10 * self.sitl.instance
         return 'tcp:127.0.0.1:' + str(port)      
 
+sem = threading.Semaphore()
 
 class ControladorDron:
     def __init__(self, connect, id):
         #print("ID = ", id)
         
+        #self.sem = threading.Semaphore()
+
         self.id = id
         self.connection_string = connect
         self.finished = False
@@ -89,37 +92,54 @@ class ControladorDron:
         #    time.sleep(1)
         #print("ale")
             
-        print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
+        #print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
         self.outputMode = "Normal"
         self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
         self.file = None
 
        
     def iniciaDron(self, camaraActivada):
+
+        
+
          #Threads para:
         # - La ejecución del movimiento del dron
         # - El funcionamiento de la cámara
         # - La comprobación de la detección
         threadsDron = []
 
+        #Despega e inicia la misión
+        self.despega(20)
+
+        threadMission = threading.Thread(target=self.executeMission)
+        threadsDron.append(threadMission)
+
+        threadMission.start()
+
+        #Inicia la cámara y la detección
         if(camaraActivada):
             self.video = VideoDetect()
 
-        threadMission = threading.Thread(target=self.executeMission)
-
         if(camaraActivada):
             threadVideo = threading.Thread(target=self.detectaVideoThread)
+            threadVideo.start()
             threadDetection = threading.Thread(target=self.checkDetection)
+            threadDetection.start()
 
         if(camaraActivada):
             threadsDron.append(threadVideo)
             threadsDron.append(threadDetection)
 
-        threadsDron.append(threadMission)
 
-        for i, t in enumerate(threadsDron):
-            print("THREAD: ", i)
-            t.start()
+        
+
+
+
+        
+
+        #for i, t in enumerate(threadsDron):
+            #print("THREAD: ", i)
+            #t.start()
         
         for t in threadsDron:
             t.join()
@@ -147,7 +167,10 @@ class ControladorDron:
     def getInfo(self, sep = " ||| "):
         print_id = "ID: " + str(self.id).ljust(3)
         if self.vehicle is not None:
-            #print("OUTPURMODE: ", self.outputMode)
+            #print("OUTPUTMODE: ", self.outputMode)
+
+            sem.acquire()
+
             print_mode = "Modo: " + self.vehicle.mode.name
             if(self.vehicle.mode.name == "RTL"):
                 
@@ -168,6 +191,9 @@ class ControladorDron:
                 print(print_id, sep, print_mode, sep, print_bat, sep, print_wp, sep, print_dist_wp)
             else:
                 print(print_id, sep, print_mode, sep, "Mira no sé qué poner", sep)
+
+            sem.release()
+
         else:
             print(print_id, " VEHICULO NO INICIADO")
     def setWPFile(self, file):
@@ -361,7 +387,12 @@ class ControladorDron:
 
         # Set mode to AUTO to start mission
         self.outputMode = "Normal"
+
+        sem.acquire()
+
         self.vehicle.mode = dk.VehicleMode("AUTO")
+
+        sem.release()
         #self.vehicle.send_mavlink #Para mandar comandos
 
         while self.continueExecution:
@@ -391,13 +422,23 @@ class ControladorDron:
                 
         print('Return to launch')
         self.outputMode = "RTL"
+
+        sem.acquire()
+
         self.vehicle.mode = dk.VehicleMode("RTL")
+
+        sem.release()
 
     def checkBattery(self, level, batlvl):
         if((batlvl + (self.bateriasCambiadas * 45))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             self.outputMode = "RTL"
+
+            sem.acquire()
+
             self.vehicle.mode = dk.VehicleMode("RTL")
+
+            sem.release()
 
             while not self.vehicle.home_location:
                 cmds = self.vehicle.commands
@@ -428,7 +469,13 @@ class ControladorDron:
                 #print("ALTURA???", self.vehicle.location.global_frame.alt)
                 time.sleep(1)
             self.outputMode = "Normal"
+
+            sem.acquire()
+
             self.vehicle.mode = dk.VehicleMode("GUIDED")
+
+            sem.release()
+
             self.vehicle.close()
 
 
@@ -441,7 +488,12 @@ class ControladorDron:
             print('Connecting to vehicle on: %s' % self.connection_string)
             self.vehicle = dk.connect(self.connection_string, wait_ready=True)
             self.outputMode = "Normal"
+
+            sem.acquire()
+
             self.vehicle.mode = dk.VehicleMode("GUIDED")
+
+            sem.release()
 
             print("CASA Recarga: ", self.vehicle.home_location)
             print(not self.vehicle.home_location)
@@ -464,7 +516,12 @@ class ControladorDron:
             self.despega(20)
             #Continúa con la misión
             self.outputMode = "Normal"
+
+            sem.acquire()
+
             self.vehicle.mode = dk.VehicleMode("AUTO")
+
+            sem.release()
 
             print("Último punto visitado: ", self.vehicle.commands.next)
 

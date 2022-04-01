@@ -42,7 +42,7 @@ modo = Modos.Single
 
 objetivoDetectado = False
 
-print("VALRO DE OBJETIVO DETECTADO: ", objetivoDetectado)
+#print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
 posicionObjetivo = None
 
 generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=15, modo=modo)
@@ -64,9 +64,12 @@ if modo == Modos.Single:
 
 def nuevoDron(id, camaraActivada):
     global soloUnaCamara
-    time.sleep(id + 5)
+    time.sleep(id * 2)
     print("INICIANDO DRON ID: ", id)
     sim = IniciaSITL()
+
+    print("SITL INICIADO")
+
     sims.append(sim)
     #print("CON: ", sim.connection_string)
     
@@ -74,7 +77,7 @@ def nuevoDron(id, camaraActivada):
     drones.append(dron)
     #controladores.append(ControladorDron(sim.connection_string, id))
 
-    dron.despega(5)
+    #dron.despega(5)
 
     dron.vehicle.mode = dk.VehicleMode("AUTO")
     
