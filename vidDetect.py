@@ -92,9 +92,10 @@ class VideoDetect:
             # update the FPS counter
             fps.update()
 
-        img_name = "opencv_frame_{}.png".format("detection")
-        cv2.imwrite(img_name, frame)
-        print("Imagen guardada")
+        if(self.detected_cow):
+            img_name = "opencv_frame_{}.png".format("detection")
+            cv2.imwrite(img_name, frame)
+            print("Imagen guardada")
 
         # stop the timer and display FPS information
         fps.stop()
