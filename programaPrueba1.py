@@ -107,7 +107,7 @@ def nuevoDron(id, camaraActivada, ruta):
     dron.createMission(ruta)
     
     print("Esperando a que el dron se inicie y se establezca la misión")
-    time.sleep(15)
+    time.sleep(1)
     print("Iniciando dron")
     dron.iniciaDron(camaraActivada)
     #Ver cómo va lo de instance_count de dronekit_sitl

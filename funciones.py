@@ -175,7 +175,7 @@ class ControladorDron:
         if self.vehicle is not None:
             #print("OUTPUTMODE: ", self.outputMode)
 
-            sem.acquire()
+            #sem.acquire()
             #print("LONGITUD DE LOS COMANDOS: ", len(self.vehicle.commands))
             #print("NUMBER OF POINTS (DRON):", self.numberOfPoints)
             #print("NEXT? ", self.vehicle.commands.next)
@@ -205,7 +205,7 @@ class ControladorDron:
             else:
                 print(print_id, sep, print_mode, sep, "Mira no sé qué poner", sep)
 
-            sem.release()
+            #sem.release()
 
         else:
             print(print_id, " VEHICULO NO INICIADO")
@@ -234,7 +234,7 @@ class ControladorDron:
 
         #Espera a que llegue a la altura especificada
         #Si se mandara otra acci´pn antes de ello, se cancelaría la acción de despegar
-        checks.esperaAltura(self.id, self.vehicle, altura, verbose=True)
+        checks.esperaAltura(self.id, self.vehicle, altura, verbose=False)
 
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html
     def mueve(self, **kwargs):
