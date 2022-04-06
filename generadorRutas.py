@@ -244,7 +244,7 @@ def singleTSP(points):
     init = datetime.datetime.now()
     ruta, coste = solve_tsp_local_search(dist_matrix)
     end = datetime.datetime.now()
-    ruta.append(ruta[0])
+    #ruta.append(ruta[0])
     print("Ruta:", ruta)
     print("Coste: ", coste)
 
@@ -271,7 +271,7 @@ def generateWaypoints(points, orderPoints):
     #La última posición de la ruta es el origen.
     #Lo añadiremos el primero, porque el origen del polígono
     # no tiene por qué ser el "home" del dron.
-    locations.append(points[orderPoints[-1]]) 
+    #locations.append(points[orderPoints[-1]]) 
     #Points es el conjunto de puntos que está dentro del polígono
     #Vamos eligiendo dichos puntos en función de lo que determine la ruta
 
