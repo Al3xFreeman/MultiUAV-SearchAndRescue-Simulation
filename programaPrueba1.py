@@ -70,12 +70,29 @@ rutas = generadorRutas.generaRuta()
 if modo == Modos.Single:
     #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
     def divideRutaEntreDrones(numDrones, ruta):
-        segmentSize = math.ceil(len(ruta)/num_drones)
+        segmentSize = math.floor(len(ruta)/num_drones)
+        remainingSpots = len(ruta) - (segmentSize * num_drones)
+        spotsPerDrone = [segmentSize] * num_drones
+        index = 0
+        print("Remaining spots:", remainingSpots)
+        while(remainingSpots != 0):
+            
+            if(index % num_drones == 0):
+                index = 0
+            print("index: ", index)
+            spotsPerDrone[index] += 1
+            remainingSpots -= 1
+            index += 1
+        print("Spots per drone")
+        print(spotsPerDrone)
         rutaSegmentadas = []
+        desde = 0
+        hasta = 0
         for i in range(numDrones):
-            desde = i*segmentSize
-            hasta = (i+1)*segmentSize
+            hasta += spotsPerDrone[i]
             rutaSegmentadas.append(ruta[desde : hasta])
+
+            desde = hasta
 
         return rutaSegmentadas
     
