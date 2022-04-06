@@ -20,21 +20,40 @@ from random import randrange
 
 parser = argparse.ArgumentParser(description='Parametros pal programa')
 parser.add_argument('-D',
+                    '-d',
                     '--drones',
                     help="Cantidad de drones a utilizar",
                     required= False,
                     default=1)
+parser.add_argument('-G',
+                    '-g',
+                    '--granularity',
+                    help="granularidad de los puntos a recorrer por los drones",
+                    required= False,
+                    default=20)
+parser.add_argument('-O',
+                    '-o',
+                    '--output',
+                    help="Habilita la salida de monitorización de drones",
+                    action='store_true')
+parser.add_argument('-A',
+                    '-a',
+                    '--alert',
+                    help="Thread para alertar sobre cuando no están los comandos",
+                    action='store_true')
 
 args = parser.parse_args()
 
 
 num_drones = int(args.drones)
-
+granularity = int(args.granularity)
+output = args.output
+alert = args.alert
 
 print("NUMERO DE DRONES: ", num_drones)
 time.sleep(2)
 
-controladores : List[ControladorDron] = [] 
+#controladores : List[ControladorDron] = [] 
 sims : List[IniciaSITL] = []
 drones : List[ControladorDron] = []
 
@@ -45,7 +64,7 @@ objetivoDetectado = False
 #print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
 posicionObjetivo = None
 
-generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=15, modo=modo)
+generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=granularity, modo=modo)
 rutas = generadorRutas.generaRuta()
 
 if modo == Modos.Single:
@@ -59,12 +78,14 @@ if modo == Modos.Single:
             rutaSegmentadas.append(ruta[desde : hasta])
 
         return rutaSegmentadas
-
+    
     rutasMultDrones = divideRutaEntreDrones(num_drones, rutas[0])
+    for i, e in enumerate(rutasMultDrones):
+        print("ID: ", i, " | LEN: ", len(e))
 
-def nuevoDron(id, camaraActivada):
+def nuevoDron(id, camaraActivada, ruta):
     global soloUnaCamara
-    time.sleep(id * 2)
+    time.sleep(id * 0.2)
     print("INICIANDO DRON ID: ", id)
     sim = IniciaSITL()
 
@@ -73,7 +94,7 @@ def nuevoDron(id, camaraActivada):
     sims.append(sim)
     #print("CON: ", sim.connection_string)
     
-    dron = ControladorDron(sim.connection_string, id)
+    dron = ControladorDron(sim.connection_string, id, len(ruta), lastPoint=ruta[-1], wayPointLocations=ruta)
     drones.append(dron)
     #controladores.append(ControladorDron(sim.connection_string, id))
 
@@ -81,9 +102,12 @@ def nuevoDron(id, camaraActivada):
 
     dron.vehicle.mode = dk.VehicleMode("AUTO")
     
-    dron.createMission(rutasMultDrones[i])
+    print("RUTA DEL DRON con ID:", id, " | LEN: ", len(ruta))
+
+    dron.createMission(ruta)
+    
     print("Esperando a que el dron se inicie y se establezca la misión")
-    time.sleep(5)
+    time.sleep(15)
     print("Iniciando dron")
     dron.iniciaDron(camaraActivada)
     #Ver cómo va lo de instance_count de dronekit_sitl
@@ -94,7 +118,7 @@ thread_list_start = []
 camaraActivada = True
 
 for i in range(num_drones):
-    thread = threading.Thread(target=nuevoDron, args=(i,camaraActivada))
+    thread = threading.Thread(target=nuevoDron, args=(i,camaraActivada, rutasMultDrones[i]))
     camaraActivada = False
     thread_list_start.append(thread)
 
@@ -105,10 +129,15 @@ def allDronesFinished(drones : List[ControladorDron]):
     
     return True
 
+finishMonitor = False
+
 def monitorDrones():
     global objetivoDetectado
+    #Damos tiempo a que se inicien los drones
     time.sleep(30)
-    while(True):
+    global finishMonitor
+    finishMonitor = False
+    while(not finishMonitor):
         print()
         print()
         print()
@@ -121,19 +150,29 @@ def monitorDrones():
         print()
         print("**************************************************************************")
         print("Obteniendo información sobre drones...")
+        print("NUMERO DE DRONES: ", len(drones))
+        
+        #Comprobación de si algún dron ha encontrado al objetivo
+        objetivoDetectado = False
         for dron in drones:
+            if(dron.objetivoEncontrado):
+                objetivoDetectado = True
+                posicionObjetivo = dron.vehicle.location.global_frame
+
+                print("Procediendo a terminar la ejecución del resto de drones")
+                for d in drones:
+                    d.finished = True
+
+
+        for dron in drones:
+            #TODO: Hacer que la comprobación de si han terminado no dependa de si hay o no drones
+            #   Ya que si se están iniciando, peta. Dejarlo como una variable del programa principal que sea controlada por la ejecución de cada dron
+            #print("FINISHED: ", dron.finished)
             if(not dron.finished):
                 dron.getInfo()
             else:
                 print("Dron: ", dron.id, " ha terminado")
 
-            if(not dron.continueExecution):
-                objetivoDetectado = True
-                posicionObjetivo = dron.posicionObjetivo
-                print("Procediendo a terminar la ejecución del resto de drones")
-                for d in drones:
-                    d.finished = True
-                    d.continueExecution = False
         
         if(not objetivoDetectado):
             print()
@@ -151,17 +190,45 @@ def monitorDrones():
             if objetivoDetectado:
                 print(" ***** ÉXITO ***** ")
                 print("Objetivo se encuentra en la posición: ", posicionObjetivo)
+                
             else:
                 print(" *** FRACASO ***")
             
             print("**************************************************************************")
+            finishMonitor = True
             break
         
         print("**************************************************************************")
         time.sleep(0.2)
 
-thread = threading.Thread(target=monitorDrones)
-thread_list_start.append(thread)
+
+def alertCommands():
+    global objetivoDetectado
+    
+    while len(drones) == 0:
+        time.sleep(0.5)
+        print("Venga tu")
+        pass
+    print("LEN?????", len(drones))
+    d = drones[0]
+    while(not (objetivoDetectado or allDronesFinished(drones))):
+        time.sleep(0.5)
+        if(len(d.vehicle.commands) < 8):
+            print("AAAAAAHHHHHH FILHO DE PUTA AGORA SIM ENTENDO, LEN: ", len(d.vehicle.commands))
+
+        if(not d.vehicle.home_location):
+            print("NO TIENE CASA")
+        #print("ObjetivoDetectado: ", objetivoDetectado, "||| allFInished: ", allDronesFinished(drones))
+
+    print("ALERTA TERMINADO")
+
+if(alert):
+    threadAlert = threading.Thread(target=alertCommands)
+    thread_list_start.append(threadAlert)
+
+if(output):
+    threadMonitor = threading.Thread(target=monitorDrones)
+    thread_list_start.append(threadMonitor)
 
 print("Numero de threads: ",len(thread_list_start))
 
