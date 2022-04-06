@@ -1,5 +1,6 @@
 from cmath import cos, sin
 from concurrent.futures import thread
+from platform import release
 import dronekit as dk
 import argparse
 import time
@@ -56,22 +57,26 @@ class IniciaSITL:
         # at 5760+3*(instance-number)
         port = 5760
         port += 10 * self.sitl.instance
-        return 'tcp:127.0.0.1:' + str(port)      
+        return 'tcp:127.0.0.1:' + str(port)
 
 sem = threading.Semaphore()
 
 class ControladorDron:
-    def __init__(self, connect, id):
+    def __init__(self, connect, id, numPoints, lastPoint, wayPointLocations):
         #print("ID = ", id)
         
         #self.sem = threading.Semaphore()
 
         self.id = id
         self.connection_string = connect
+
         self.finished = False
-        self.continueExecution = True
+        self.objetivoEncontrado = False
         self.posicionObjetivo = None
-        
+        self.video = None
+        self.numberOfPoints = numPoints
+        self.lastPoint = lastPoint
+        self.wayPointLocations = wayPointLocations
         # Connect to the Vehicle
         #print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
@@ -99,10 +104,7 @@ class ControladorDron:
 
        
     def iniciaDron(self, camaraActivada):
-
-        
-
-         #Threads para:
+        #Threads para:
         # - La ejecución del movimiento del dron
         # - El funcionamiento de la cámara
         # - La comprobación de la detección
@@ -110,6 +112,16 @@ class ControladorDron:
 
         #Despega e inicia la misión
         self.despega(20)
+
+        if not self.vehicle.home_location:
+            print("Estableciendo casa")
+            self.download_mission()
+            #self.vehicle.home_location = self.home
+            self.home = self.vehicle.home_location
+        else:
+            print("ESTA ES MI CASA:", self.vehicle.home_location)
+            
+        print("CASA: ", self.vehicle.home_location)
 
         threadMission = threading.Thread(target=self.executeMission)
         threadsDron.append(threadMission)
@@ -130,13 +142,6 @@ class ControladorDron:
             threadsDron.append(threadVideo)
             threadsDron.append(threadDetection)
 
-
-        
-
-
-
-        
-
         #for i, t in enumerate(threadsDron):
             #print("THREAD: ", i)
             #t.start()
@@ -150,18 +155,19 @@ class ControladorDron:
     
     def checkDetection(self):
         
-        while(not self.video.detected_cow):
+        while(not self.video.detected_cow and not self.finished):
             #print("No se ha encontrado a la vaca ):")
-            time.sleep(2)
+            time.sleep(1)
             pass
-
-        print("VACA ENCONTRADA!!!")
+        if(self.video.detected_cow):
+            print("VACA ENCONTRADA!!!")
+            self.posicionObjetivo = self.vehicle.location.global_frame
+            self.objetivoEncontrado = True
         time.sleep(0.3)
-        self.posicionObjetivo = self.vehicle.location.global_frame
+        print("DETECCIÓN TERMINADA")
         self.video.ejecuta_video = False
-        self.continueExecution = False
+        self.finished = True
         
-
 
 
     def getInfo(self, sep = " ||| "):
@@ -170,16 +176,23 @@ class ControladorDron:
             #print("OUTPUTMODE: ", self.outputMode)
 
             sem.acquire()
-
+            #print("LONGITUD DE LOS COMANDOS: ", len(self.vehicle.commands))
+            #print("NUMBER OF POINTS (DRON):", self.numberOfPoints)
+            #print("NEXT? ", self.vehicle.commands.next)
             print_mode = "Modo: " + self.vehicle.mode.name
+
+            print_alt = "Altura: " + str(self.vehicle.location.global_frame.alt)
+
             if(self.vehicle.mode.name == "RTL"):
-                
-                print(print_id, sep, print_mode)
-                
-            elif(self.vehicle.mode.name == "AUTO" or self.vehicle.mode.name == "GUIDED"):
+                print_dist_home = "Dist a casa: " + str(get_distance_metres(self.vehicle.location.global_frame, self.home))
+                print(print_id, sep, print_mode, sep, print_dist_home, sep, print_alt)
+            #Comprobar el valor de commands.next
+            
+            elif(self.vehicle.mode.name == "AUTO" or self.vehicle.mode.name == "GUIDED" and len(self.vehicle.commands) == self.numberOfPoints):
                 print_wp = "Waypoint: " + str(self.vehicle._current_waypoint).ljust(3) + " de " + str(len(self.vehicle.commands)).ljust(3)
-                if self.distance_to_current_waypoint() is not None:
-                    print_dist_wp = "Distancia al siguiente punto: " + str(self.distance_to_current_waypoint())
+                dist_curr_WP = get_distance_metres(self.vehicle.location.global_frame, self.wayPointLocations[self.vehicle.commands.next - 1])
+                if dist_curr_WP is not None:
+                    print_dist_wp = "Distancia al siguiente punto: " + str(dist_curr_WP)
                 else:
                     print_dist_wp = ""
 
@@ -188,7 +201,7 @@ class ControladorDron:
                 else:
                     print_bat = ""
 
-                print(print_id, sep, print_mode, sep, print_bat, sep, print_wp, sep, print_dist_wp)
+                print(print_id, sep, print_mode, sep, print_bat, sep, print_wp, sep, print_dist_wp, sep, print_alt)
             else:
                 print(print_id, sep, print_mode, sep, "Mira no sé qué poner", sep)
 
@@ -221,7 +234,7 @@ class ControladorDron:
 
         #Espera a que llegue a la altura especificada
         #Si se mandara otra acci´pn antes de ello, se cancelaría la acción de despegar
-        checks.esperaAltura(self.id, self.vehicle, altura)
+        checks.esperaAltura(self.id, self.vehicle, altura, verbose=True)
 
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html
     def mueve(self, **kwargs):
@@ -324,7 +337,7 @@ class ControladorDron:
 
         #TODO - Ver una forma de hacer esto mejor
         #add dummy waypoint (same as the last one, lets us know when have reached destination)
-        cmds.add(cmds[-1])
+        #cmds.add(cmds[-1])
 
         cmds.upload()
 
@@ -332,10 +345,11 @@ class ControladorDron:
         """
         Download the current mission from the vehicle.
         """
-        cmds = self.vehicle.commands
-        cmds.download()
+        self.vehicle.commands.download()
         print("Descargando cosis")
-        cmds.wait_ready() # wait until download is complete.
+        self.vehicle.commands.wait_ready() # wait until download is complete.
+
+        print("Cosis descargadas")
 
 #Hacer que en cuanto se suba la misión se guarde en un archivo la ruta para poder subirla en cualquier momento
     def createMission(self, locations, altura = 20):
@@ -350,18 +364,32 @@ class ControladorDron:
 
         print(" Clear any existing commands")
         cmds.clear() 
-    
+        cmds.upload()
+#        print("DISTANCIA:", get_distance_metres(self.vehicle.location.global_frame, locations[0]))
         print(" Define/add new commands.")
         #Add MAV_CMD_NAV_TAKEOFF command. This is ignored if the vehicle is already in the air.
-        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, altura))
+        #cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, 0, altura))
+        #print("LONGITUD DELOS COMANDOS A ESTABLECER: ", len(locations))
+ #       print(locations)
+        #cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, locations[0].lat, locations[0].lon, 11))
+        for i, loc in enumerate(locations):
 
-        for loc in locations:
             cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, loc.lat, loc.lon, 11))
+            if(len(cmds) == 0):
+                cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, loc.lat, loc.lon, 11))
+            #print("INDEX:", i, "||| LEN:", len(cmds))
+
         
         #add dummy waypoint (same as the last one, lets us know when have reached destination)
-        cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, locations[-1].lat, locations[-1].lon, 11))
-
+        #cmds.add(dk.Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, locations[-1].lat, locations[-1].lon, 11))
+        #print("NUMERO DE COMANDOS REAL: ", len(cmds))
         cmds.upload()
+        print("Upload hecho, ahora el download")
+        cmds = self.vehicle.commands
+        cmds.download()
+        cmds.wait_ready()
+
+        print("Upload y download hecho")
 
     def distance_to_current_waypoint(self):
         """
@@ -389,13 +417,11 @@ class ControladorDron:
         self.outputMode = "Normal"
 
         sem.acquire()
-
         self.vehicle.mode = dk.VehicleMode("AUTO")
-
         sem.release()
         #self.vehicle.send_mavlink #Para mandar comandos
 
-        while self.continueExecution:
+        while not self.finished:
             nextwaypoint = self.vehicle.commands.next
             #print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
             if self.vehicle.battery.level == None:
@@ -405,20 +431,23 @@ class ControladorDron:
 
             #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
-            self.checkBattery(83, lvl)
+            self.checkBattery(50, lvl)
 
-            if nextwaypoint==len(self.vehicle.commands) - 2: #Skip to next waypoint
-                print("Skipping to Waypoint", len(self.vehicle.commands)," when reach waypoint ", len(self.vehicle.commands) - 2)
-                self.vehicle.commands.next = len(self.vehicle.commands)
-            if nextwaypoint==len(self.vehicle.commands): #Dummy waypoint - as soon as we reach waypoint 4 this is true and we exit.
-                print("Exit 'standard' mission when start heading to final waypoint (5)")
+            if(get_distance_metres(self.vehicle.location.global_frame, self.lastPoint) < 5):
+                print("DRON ", self.id, " HA LLEGADO AL FINAL")
                 break;
+
             time.sleep(1)
 
-        if (not self.continueExecution):
-            print("La ejecución se paró por haber encontrado al objetivo")
+        print("La ejecucion terminó por: ", end="")
+        if (self.objetivoEncontrado):
+            print("Encontrar al objetivo")
+        else:
+            print("Terminar el recorrido")
         
         self.finished = True
+        if(not self.video == None):
+            self.video.ejecuta_video = False
                 
         print('Return to launch')
         self.outputMode = "RTL"
@@ -429,98 +458,96 @@ class ControladorDron:
 
         sem.release()
 
+        print("EJECUTA MISION TERMINADO")
+        #Cerrar la conexión
+        
+
+
     def checkBattery(self, level, batlvl):
-        if((batlvl + (self.bateriasCambiadas * 45))  < level):
+        if((batlvl + (self.bateriasCambiadas * (100-level)))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
-            self.outputMode = "RTL"
+            #self.outputMode = "RTL"
 
             sem.acquire()
 
             self.vehicle.mode = dk.VehicleMode("RTL")
+            #print("PERO TU TIENES CASA: ", self.vehicle._home_location)
+            sem.release()
+
+            sem.acquire()
+
+            if not self.vehicle.home_location:
+                print("Estableciendo casa")
+                self.download_mission()
+                #self.vehicle.home_location = self.home
+                self.home = self.vehicle.home_location
 
             sem.release()
 
-            while not self.vehicle.home_location:
-                cmds = self.vehicle.commands
-                cmds.download()
-                cmds.wait_ready()
-
             while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
-                print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
+                #print("HA LLEGADO? A CASA: ", get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) < 5)
+                #print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
                 time.sleep(1)
             
-            print("YA EN CASA")
+            print("El vehículo: ", self.id, " ha llegado a casa")
 
-            self.bateriasCambiadas += 1
-
-            #Guarda el estado de los comandos actual
-            cmds = self.vehicle.commands
-            cmds.download()
-            cmds.wait_ready()
-            
+            sem.acquire()
             siguiente = self.vehicle.commands.next
-            
+            sem.release()
 
-            print("CONNECTION STRING: ", self.connection_string )
+            #print("CONNECTION STRING: ", self.connection_string )
 
             #Se desconecta para simular el cambio de batería
             #print("ALTURA???", self.vehicle.location.global_frame.alt)
+
+            #TODO Comprobar este while
             while (self.vehicle.location.global_frame.alt > 0.01) and (self.vehicle.location.global_frame.alt > (self.vehicle.home_location.alt + 0.1)):
                 #print("ALTURA???", self.vehicle.location.global_frame.alt)
                 time.sleep(1)
-            self.outputMode = "Normal"
+            #self.outputMode = "Normal"
 
             sem.acquire()
-
             self.vehicle.mode = dk.VehicleMode("GUIDED")
-
+            self.vehicle.close()
             sem.release()
 
-            self.vehicle.close()
-
-
-            print("Recargando batería")
+            print("Recargando batería del vehículo: ", self.id)
             time.sleep(5)
             
-
+            self.bateriasCambiadas += 1
             #Se vuelve a conectar cuando tiene la nueva batería
             print("VECES QUE HA IDO A RECARGAR: ", self.bateriasCambiadas)
-            print('Connecting to vehicle on: %s' % self.connection_string)
+            print('Connecting to vehicle', self.id,' on: %s' % self.connection_string)
             self.vehicle = dk.connect(self.connection_string, wait_ready=True)
-            self.outputMode = "Normal"
+            #self.outputMode = "Normal"
 
             sem.acquire()
-
             self.vehicle.mode = dk.VehicleMode("GUIDED")
-
             sem.release()
 
-            print("CASA Recarga: ", self.vehicle.home_location)
-            print(not self.vehicle.home_location)
-            while not self.vehicle.home_location:
-                comm = self.vehicle.commands
-                comm.download()
-                comm.wait_ready()
-                if not self.vehicle.home_location:
-                    print(" Waiting for home location ...")
-                time.sleep(1)
+            sem.acquire()
+            if not self.vehicle.home_location:
+                print("Estableciendo casa")
+                self.download_mission()
+                #self.vehicle.home_location = self.home
+                self.home = self.vehicle.home_location
+           
+            sem.release()
 
-            print("CASA Recarga: ", self.vehicle.home_location)
-
-
+            sem.acquire()
             self.createMission(self.locations)
 
             self.vehicle.commands.next = siguiente - 1
-            
+            #espera artificial para asegurar que los comandos se suban
+            sem.release()
+
             #Vuelve a despegar
             self.despega(20)
             #Continúa con la misión
-            self.outputMode = "Normal"
+            #self.outputMode = "Normal"
 
             sem.acquire()
-
             self.vehicle.mode = dk.VehicleMode("AUTO")
-
             sem.release()
 
             print("Último punto visitado: ", self.vehicle.commands.next)
