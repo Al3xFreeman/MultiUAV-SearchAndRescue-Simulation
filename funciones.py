@@ -77,6 +77,8 @@ class ControladorDron:
         self.numberOfPoints = numPoints
         self.lastPoint = lastPoint
         self.wayPointLocations = wayPointLocations
+
+        self.tiempoDeVuelo = 0
         # Connect to the Vehicle
         #print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
@@ -104,6 +106,9 @@ class ControladorDron:
 
        
     def iniciaDron(self, camaraActivada):
+
+        initExecution = datetime.datetime.now()
+
         #Threads para:
         # - La ejecución del movimiento del dron
         # - El funcionamiento de la cámara
@@ -149,6 +154,10 @@ class ControladorDron:
         for t in threadsDron:
             t.join()
 
+        endExecution = datetime.datetime.now()
+
+        self.tiempoDeVuelo = (endExecution - initExecution).total_seconds()
+        
     
     def detectaVideoThread(self):
         self.video.runVideoDetection()

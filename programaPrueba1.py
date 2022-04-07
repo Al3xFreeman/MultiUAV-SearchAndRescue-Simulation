@@ -255,6 +255,18 @@ for thread in thread_list_start:
 for thread in thread_list_start:
     thread.join()
 
+def printResumen():
+    tiempoVueloTotal = 0
+    bateriasNecesarias = 0
+    for d in drones:
+        tiempoVueloTotal += d.tiempoDeVuelo
+        bateriasNecesarias += d.bateriasCambiadas
+
+    #Hacer una estadística para ver cuánto afecta que la ruta del dron tenga muchos o pocos giros al tiempo de vuelo total
+
+    print("Tiempo de vuelo total: ", tiempoVueloTotal, "||| Tiempo de vuelo medio: ", tiempoVueloTotal/num_drones)
+    print("Número de baterias usadas: ", bateriasNecesarias, "||| Baterías usadas de media: ", bateriasNecesarias/num_drones)
+
 
 print("TUTUTUTUTU")
 #for i in range(num_drones):
