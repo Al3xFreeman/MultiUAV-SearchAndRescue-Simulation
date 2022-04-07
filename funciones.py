@@ -101,7 +101,7 @@ class ControladorDron:
             
         #print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
         self.outputMode = "Normal"
-        self.bateriasCambiadas = 0 #Veces que ha ido a repostar las baterías
+        self.bateriasUsadas = 1 #Veces que ha ido a repostar las baterías
         self.file = None
 
        
@@ -473,7 +473,7 @@ class ControladorDron:
 
 
     def checkBattery(self, level, batlvl):
-        if((batlvl + (self.bateriasCambiadas * (100-level)))  < level):
+        if((batlvl + (self.bateriasUsadas * (100-level)))  < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             #self.outputMode = "RTL"
 
@@ -523,9 +523,9 @@ class ControladorDron:
             print("Recargando batería del vehículo: ", self.id)
             time.sleep(5)
             
-            self.bateriasCambiadas += 1
+            self.bateriasUsadas += 1
             #Se vuelve a conectar cuando tiene la nueva batería
-            print("VECES QUE HA IDO A RECARGAR: ", self.bateriasCambiadas)
+            print("VECES QUE HA IDO A RECARGAR: ", self.bateriasUsadas)
             print('Connecting to vehicle', self.id,' on: %s' % self.connection_string)
             self.vehicle = dk.connect(self.connection_string, wait_ready=True)
             #self.outputMode = "Normal"
