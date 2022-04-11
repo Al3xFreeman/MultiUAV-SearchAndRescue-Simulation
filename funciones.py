@@ -480,7 +480,7 @@ class ControladorDron:
             
             self.checkBattery(50, lvl)
 
-            if(get_distance_metres(self.vehicle.location.global_frame, self.lastPoint) < 5):
+            if((self.vehicle.commands.next == self.numberOfPoints) and get_distance_metres(self.vehicle.location.global_frame, self.lastPoint) < 5):
                 print("DRON ", self.id, " HA LLEGADO AL FINAL")
                 break;
 
