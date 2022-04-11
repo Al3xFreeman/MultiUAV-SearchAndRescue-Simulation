@@ -206,7 +206,7 @@ class ControladorDron:
     
     def checkDetection(self):
         
-        while(not self.video.detected_cow and not self.video.ejecuta_video):
+        while(not self.video.detected_cow and self.video.ejecuta_video):
             #print("No se ha encontrado a la vaca ):")
             time.sleep(1)
             pass
@@ -506,7 +506,8 @@ class ControladorDron:
         sem.release()
 
         print("EJECUTA MISION TERMINADO, Dron: ", self.id ," volviendo a casa")
-        while(get_distance_metres(self.vehicle.location.global_frame, self.home) < 0.5):
+        while(get_distance_metres(self.vehicle.location.global_frame, self.home) > 0.5):
+            print("Distancia a casa: ", get_distance_metres(self.vehicle.location.global_frame, self.home))
             time.sleep(1)
         
         print("Dron: ", self.id, " ha llegado a casa")
