@@ -26,6 +26,9 @@ from typing import List
 from vidDetect import *
 import threading
 
+import json
+from pykafka import KafkaClient
+
 
 #Controlador encargado de centralizar las diversas funciones
 # del dron.
@@ -113,6 +116,7 @@ class ControladorDron:
         # - La ejecución del movimiento del dron
         # - El funcionamiento de la cámara
         # - La comprobación de la detección
+        # - Kafka producer para mandar la info del dron (JSON)
         threadsDron = []
 
         #Despega e inicia la misión
@@ -131,7 +135,11 @@ class ControladorDron:
         threadMission = threading.Thread(target=self.executeMission)
         threadsDron.append(threadMission)
 
+        threadKafka = threading.Thread(target=self.kafkaData)
+        threadsDron.append(threadKafka)
+
         threadMission.start()
+        threadKafka.start()
 
         #Inicia la cámara y la detección
         if(camaraActivada):
@@ -157,8 +165,38 @@ class ControladorDron:
         endExecution = datetime.datetime.now()
 
         self.tiempoDeVuelo = (endExecution - initExecution).total_seconds()
-        
     
+    def kafkaData(self):
+        """
+        Sends drone position, video feed and other relevant data via kafka to aggreagte all the avalable information.
+        Should only send it while the drone control flags enable it.
+
+        For example, if the "finished" parameter is True, it should stop sending data as the dron has finished operations
+        """
+
+        client = KafkaClient(hosts="localhost:9092")
+        topicCoords = client.topics["mapaDronesTest"]
+        producerCoords = topicCoords.get_sync_producer()
+        
+        #JSON with the coordinates
+        data = {}
+        data['id'] = self.id
+
+        while(not self.finished):
+            data['date'] = datetime.datetime.now()
+            data['latitude'] = self.vehicle.location.global_frame.lat
+            data['longitude'] = self.vehicle.location.global_frame.lon
+            data['altitude'] = self.vehicle.location.global_frame.alt
+            data['status'] = self.vehicle.mode.name
+
+            coordsMsg = json.dumps(data, default=myconverter)
+
+            producerCoords.produce(coordsMsg.encode('ascii'))
+
+            #Sends updates of the drone every 0.25 seconds
+            time.sleep(0.25)
+        
+
     def detectaVideoThread(self):
         self.video.runVideoDetection()
     
@@ -635,3 +673,8 @@ def get_distance_metres(aLocation1, aLocation2):
     dlat = aLocation2.lat - aLocation1.lat
     dlong = aLocation2.lon - aLocation1.lon
     return math.sqrt((dlat*dlat) + (dlong*dlong)) * 1.113195e5
+
+
+def myconverter(o):
+        if isinstance(o, datetime.datetime):
+            return o.__str__()
