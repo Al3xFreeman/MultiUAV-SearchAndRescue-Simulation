@@ -131,6 +131,10 @@ def nuevoDron(id, camaraActivada, ruta):
     #sim.sitl.instance += 1
     #print("INSTANCIA: ", sim.sitl.instance)
 
+    time.sleep(25)
+    print("Cerrando el SITL")
+    sim.sitl.close()
+
 thread_list_start = []
 camaraActivada = True
 
