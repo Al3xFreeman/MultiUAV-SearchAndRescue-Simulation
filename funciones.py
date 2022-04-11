@@ -104,7 +104,7 @@ class ControladorDron:
             
         #print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
         self.outputMode = "Normal"
-        self.bateriasUsadas = 1 #Veces que ha ido a repostar las baterías
+        self.bateriasUsadas = 0 #Veces que ha ido a repostar las baterías
         self.file = None
 
        
@@ -118,6 +118,10 @@ class ControladorDron:
         # - La comprobación de la detección
         # - Kafka producer para mandar la info del dron (JSON)
         threadsDron = []
+
+        threadKafka = threading.Thread(target=self.kafkaData)
+        threadsDron.append(threadKafka)
+        threadKafka.start()
 
         #Despega e inicia la misión
         self.despega(20)
@@ -135,11 +139,9 @@ class ControladorDron:
         threadMission = threading.Thread(target=self.executeMission)
         threadsDron.append(threadMission)
 
-        threadKafka = threading.Thread(target=self.kafkaData)
-        threadsDron.append(threadKafka)
-
+ 
         threadMission.start()
-        threadKafka.start()
+
 
         #Inicia la cámara y la detección
         if(camaraActivada):
@@ -188,6 +190,8 @@ class ControladorDron:
             data['longitude'] = self.vehicle.location.global_frame.lon
             data['altitude'] = self.vehicle.location.global_frame.alt
             data['status'] = self.vehicle.mode.name
+            data['battery'] = self.vehicle.battery.level
+            data['checkpoint'] = self.vehicle.commands.next
 
             coordsMsg = json.dumps(data, default=myconverter)
 
@@ -211,10 +215,7 @@ class ControladorDron:
             self.posicionObjetivo = self.vehicle.location.global_frame
             self.objetivoEncontrado = True
         time.sleep(0.3)
-        print("DETECCIÓN TERMINADA")
-        self.video.ejecuta_video = False
-        self.finished = True
-        
+        print("DETECCIÓN TERMINADA")        
 
 
     def getInfo(self, sep = " ||| "):
@@ -508,6 +509,7 @@ class ControladorDron:
         while(get_distance_metres(self.vehicle.location.global_frame, self.home) < 0.5):
             time.sleep(1)
         
+        print("Dron: ", self.id, " ha llegado a casa")
         self.vehicle.close()
         self.finished = True
         #Cerrar la conexión

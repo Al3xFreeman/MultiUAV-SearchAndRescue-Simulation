@@ -133,7 +133,7 @@ def nuevoDron(id, camaraActivada, ruta):
 
     time.sleep(25)
     print("Cerrando el SITL")
-    sim.sitl.close()
+    sim.sitl.stop()
 
 thread_list_start = []
 camaraActivada = True
