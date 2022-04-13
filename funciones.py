@@ -40,10 +40,10 @@ from pykafka import KafkaClient
 
 
 class IniciaSITL:
-    def __init__(self) -> None:
+    def __init__(self, homeLat = 40.453010, homeLon = -3.732698) -> None:
        
         import dronekit_sitl
-        self.sitl = dronekit_sitl.start_default(lat = 40.453010, lon = -3.732698)
+        self.sitl = dronekit_sitl.start_default(homeLat, homeLon)
         self.connection_string = self.sitl.connection_string()
  
         #import dronekit_sitl as dk_sitl
@@ -128,7 +128,7 @@ class ControladorDron:
         threadKafka = threading.Thread(target=self.kafkaData)
         threadsDron.append(threadKafka)
         threadKafka.start()
-
+        
         #Despega e inicia la misión
         self.despega(20)
 
@@ -166,7 +166,6 @@ class ControladorDron:
         #for i, t in enumerate(threadsDron):
             #print("THREAD: ", i)
             #t.start()
-        
         for t in threadsDron:
             t.join()
 
@@ -198,7 +197,7 @@ class ControladorDron:
             data['longitude'] = self.vehicle.location.global_frame.lon
             data['altitude'] = self.vehicle.location.global_frame.alt
             data['status'] = self.vehicle.mode.name
-            data['battery'] = self.vehicle.battery.level
+            data['battery'] = self.calculateRealBattery()
             data['checkpoint'] = self.vehicle.commands.next
             #print("MAX: ", self.vehicle.airspeed)
             speed = (get_distance_metres(self.vehicle.location.global_frame, prevPos)/dataInterval)
@@ -519,7 +518,6 @@ class ControladorDron:
 
         print("EJECUTA MISION TERMINADO, Dron: ", self.id ," volviendo a casa")
         while(get_distance_metres(self.vehicle.location.global_frame, self.home) > 0.5):
-            print("Distancia a casa: ", get_distance_metres(self.vehicle.location.global_frame, self.home))
             time.sleep(1)
         
         print("Dron: ", self.id, " ha llegado a casa")
@@ -528,9 +526,17 @@ class ControladorDron:
         #Cerrar la conexión
         
 
+    def calculateRealBattery(self):
+        if self.vehicle.battery.level == None:
+            simLvl = 0
+        else:
+            simLvl = self.vehicle.battery.level
+        
+        return (simLvl + (self.bateriasUsadas * 100))
+        
 
     def checkBattery(self, level, batlvl):
-        if((batlvl + (self.bateriasUsadas * (100-level)))  < level):
+        if((batlvl + (self.bateriasUsadas * (100-level))) < level):
             print("Batería restante baja... Volviendo a casa para cambio de batería")
             #self.outputMode = "RTL"
 
