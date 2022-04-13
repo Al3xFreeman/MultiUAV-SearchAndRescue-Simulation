@@ -55,11 +55,11 @@ class GeneraRutas:
 
 
         if self.modo == Modos.Single:
-            return self.genRutaSingle()
+            return (self.genRutaSingle(), self.coordenadas)
         elif self.modo == Modos.mTSP:
-            return self.genRutaMTSP()
+            return (self.genRutaMTSP(), self.coordenadas)
         elif self.modo == Modos.Sectores:
-            return self.genRutaSectores()
+            return (self.genRutaSectores(), self.coordenadas)
 
         #Ver cómo lanzar excepciones
         return []
@@ -124,8 +124,14 @@ def readFile(file):
     y devuelve una serie de puntos (NO el objeto de dronekit, solo los puntos parseados, faltaría la altura)
     """
 
-    f = open(file, "r")
-    puntos = list(map(lambda line: line.split(', '), f.readlines())) #Separa cada coordenada en lat y lon
+    #f = open(file, "r")
+    with open(file) as f:
+        puntosStr = list(map(lambda line: line.split(', '), f.read().splitlines())) #Separa cada coordenada en lat y lon
+
+    puntos = []
+    #Mejorar esto y hacerlo en una sola linea
+    for p in puntosStr:
+        puntos.append([float(p[0]), float(p[1])])
 
     return puntos
 
