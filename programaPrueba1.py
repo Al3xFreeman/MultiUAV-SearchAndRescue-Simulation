@@ -50,6 +50,9 @@ granularity = int(args.granularity)
 output = args.output
 alert = args.alert
 
+homeLat = 40.453010
+homeLon = -3.732698
+
 print("NUMERO DE DRONES: ", num_drones)
 time.sleep(2)
 
@@ -65,7 +68,7 @@ objetivoDetectado = False
 posicionObjetivo = None
 
 generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=granularity, modo=modo)
-rutas = generadorRutas.generaRuta()
+(rutas, coordenadasPol) = generadorRutas.generaRuta()
 
 if modo == Modos.Single:
     #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
@@ -104,7 +107,7 @@ def nuevoDron(id, camaraActivada, ruta):
     global soloUnaCamara
     time.sleep(id * 0.2)
     print("INICIANDO DRON ID: ", id)
-    sim = IniciaSITL()
+    sim = IniciaSITL(homeLat, homeLon)
 
     print("SITL INICIADO")
 
@@ -135,13 +138,30 @@ def nuevoDron(id, camaraActivada, ruta):
     print("Cerrando el SITL")
     sim.sitl.stop()
 
+
+kafkaClient = KafkaClient(hosts="localhost:9092")
+
+topicCoords = kafkaClient.topics["mapaDronesSetup"]
+producerCoords = topicCoords.get_sync_producer()
+
+data = {}
+data['type'] = "setup"
+data['homeLat'] = homeLat
+data['homeLon'] = homeLon
+data['pol'] = coordenadasPol
+data['numDrones'] = num_drones
+
+setupMsg = json.dumps(data)
+producerCoords.produce(setupMsg.encode('ascii'))
+
+
 thread_list_start = []
 camaraActivada = True
 
 for i in range(num_drones):
-    thread = threading.Thread(target=nuevoDron, args=(i,camaraActivada, rutasMultDrones[i]))
+    threadDron = threading.Thread(target=nuevoDron, args=(i,camaraActivada, rutasMultDrones[i]))
     camaraActivada = False
-    thread_list_start.append(thread)
+    thread_list_start.append(threadDron)
 
 def allDronesFinished(drones : List[ControladorDron]):
     for drone in drones:
@@ -277,6 +297,8 @@ def printResumen():
 printResumen()
 
 print("TUTUTUTUTU")
+
+producerCoords.stop()
 #for i in range(num_drones):
 #    nuevoDron(i)
 
