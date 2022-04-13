@@ -19,7 +19,7 @@
             function sleep(ms) {
                 return new Promise(resolve => setTimeout(resolve, ms));
             }
-            var map = L.map('map').setView([40.453010, -3.732698], 13);
+            var map = L.map('map').setView([40.453010, -3.732698], 15);
             L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
                 attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
                 maxZoom: 24,
@@ -28,8 +28,12 @@
                 zoomOffset: -1,
                 accessToken: ''
             }).addTo(map);
-
+            
+            
+            
             mapMarkers = []
+
+            var prevPos = Array(20).fill([0,0,0]);
 
             var source = new EventSource('/topic/mapaDronesTest');
             source.addEventListener('message', function(e) {
@@ -44,7 +48,82 @@
                 newMarker = L.marker([obj.latitude, obj.longitude]).addTo(map);
                 mapMarkers[parseInt(obj.id)] = newMarker;
                 
+                pathCoords = connectTheDots(prevPos[obj.id][0], prevPos[obj.id][1], obj.latitude, obj.longitude)
+
+                var firstpolyline = new L.Polyline(pathCoords, {
+                    color: colorGradient(obj.normalizedSpeed, lowColor, mediumColor, highColor),
+                    weight: 5,
+                    smoothFactor: 1
+                }).addTo(map);
+                
+                
+                prevPos[obj.id] = [obj.latitude, obj.longitude, obj.altitude];
+
+                
             })
+            /*
+            var source = new EventSource('/video');
+            source.addEventListener('message', function(e) {
+
+                obj = JSON.parse(e.data);
+                console.log(obj);
+                var img = document.createElement("img");
+                var frame = document.getElementById("video");
+                frame.appendChild(obj.frame);
+            })
+            */
+            
+            function connectTheDots(lat1, lon1, lat2, lon2){
+                var c = [];
+                c.push([lat1, lon1]);
+                c.push([lat2, lon2]);
+                return c;
+            }
+
+            let lowColor = {
+                red: 217,
+                green: 83,
+                blue: 79
+            };
+            let mediumColor = {
+                red: 240,
+                green: 173,
+                blue: 78
+            };
+            let highColor = {
+                red: 92,
+                green: 184,
+                blue: 91
+            };
+            function colorGradient(fadeFraction, rgbColor1, rgbColor2, rgbColor3) {
+                var color1 = rgbColor1;
+                var color2 = rgbColor2;
+                var fade = fadeFraction;
+
+                // Do we have 3 colors for the gradient? Need to adjust the params.
+                if (rgbColor3) {
+                fade = fade * 2;
+
+                // Find which interval to use and adjust the fade percentage
+                if (fade >= 1) {
+                    fade -= 1;
+                    color1 = rgbColor2;
+                    color2 = rgbColor3;
+                }
+                }
+
+                var diffRed = color2.red - color1.red;
+                var diffGreen = color2.green - color1.green;
+                var diffBlue = color2.blue - color1.blue;
+
+                var gradient = {
+                red: parseInt(Math.floor(color1.red + (diffRed * fade)), 10),
+                green: parseInt(Math.floor(color1.green + (diffGreen * fade)), 10),
+                blue: parseInt(Math.floor(color1.blue + (diffBlue * fade)), 10),
+                };
+
+                return 'rgb(' + gradient.red + ',' + gradient.green + ',' + gradient.blue + ')';
+            }
         </script>
     </body>
 </html>
