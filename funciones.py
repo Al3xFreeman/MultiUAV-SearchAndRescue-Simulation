@@ -82,10 +82,16 @@ class ControladorDron:
         self.wayPointLocations = wayPointLocations
 
         self.tiempoDeVuelo = 0
+        self.KafkaClient = KafkaClient(hosts="localhost:9092")
         # Connect to the Vehicle
         #print('Connecting to vehicle on: %s' % self.connection_string)
         self.vehicle = dk.connect(self.connection_string, wait_ready=True)
 
+        #Set max velocity to 10 m/s
+        self.vehicle.airspeed = 10
+        self.vehicle.wait_ready('airspeed')
+
+        print("MAX ", self.vehicle.airspeed)
         #self.download_mission()
         #print(" Waiting for home location", end='')
         #while not self.vehicle.home_location:
@@ -145,7 +151,7 @@ class ControladorDron:
 
         #Inicia la cámara y la detección
         if(camaraActivada):
-            self.video = VideoDetect()
+            self.video = VideoDetect(self.id)
 
         if(camaraActivada):
             threadVideo = threading.Thread(target=self.detectaVideoThread)
@@ -175,15 +181,17 @@ class ControladorDron:
 
         For example, if the "finished" parameter is True, it should stop sending data as the dron has finished operations
         """
-
-        client = KafkaClient(hosts="localhost:9092")
-        topicCoords = client.topics["mapaDronesTest"]
+        
+        topicCoords = self.KafkaClient.topics["mapaDronesTest"]
         producerCoords = topicCoords.get_sync_producer()
         
         #JSON with the coordinates
+        dataInterval = 0.25
+        defaultSpeed = 10
         data = {}
         data['id'] = self.id
-
+        prevPos = self.vehicle.location.global_frame
+        print("INICIA KAFKA")
         while(not self.finished):
             data['date'] = datetime.datetime.now()
             data['latitude'] = self.vehicle.location.global_frame.lat
@@ -192,13 +200,17 @@ class ControladorDron:
             data['status'] = self.vehicle.mode.name
             data['battery'] = self.vehicle.battery.level
             data['checkpoint'] = self.vehicle.commands.next
+            #print("MAX: ", self.vehicle.airspeed)
+            speed = (get_distance_metres(self.vehicle.location.global_frame, prevPos)/dataInterval)
+            data['normalizedSpeed'] = speed / defaultSpeed
 
             coordsMsg = json.dumps(data, default=myconverter)
 
             producerCoords.produce(coordsMsg.encode('ascii'))
 
             #Sends updates of the drone every 0.25 seconds
-            time.sleep(0.25)
+            prevPos = self.vehicle.location.global_frame
+            time.sleep(dataInterval)
         
 
     def detectaVideoThread(self):

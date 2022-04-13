@@ -1,4 +1,3 @@
-# import the necessary packages
 from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
@@ -7,7 +6,8 @@ import time
 import cv2
 
 class VideoDetect:
-    def __init__(self) -> None:
+    def __init__(self, _id) -> None:
+        self.id = _id
         self.detected_cow = False
         self.ejecuta_video = True
 
@@ -20,7 +20,6 @@ class VideoDetect:
         pass
 
     def runVideoDetection(self):
-        print("HOLLAAAA????")
         # initialize the list of class labels MobileNet SSD was trained to
         # detect, then generate a set of bounding box colors for each class
         CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
@@ -104,4 +103,3 @@ class VideoDetect:
         # do a bit of cleanup
         cv2.destroyAllWindows()
         vs.stop()
-
