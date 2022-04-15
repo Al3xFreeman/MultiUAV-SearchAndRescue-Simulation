@@ -298,7 +298,7 @@ def sendResumen():
 
         setupMsg = json.dumps(dataEndMission)
         producerCoords.produce(setupMsg.encode('ascii'))
-        time.sleep(0.2)
+        time.sleep(0.033)
     print("END RESUMEN")
 threadUpdate = threading.Thread(target=sendResumen)
 thread_list_start.append(threadUpdate)

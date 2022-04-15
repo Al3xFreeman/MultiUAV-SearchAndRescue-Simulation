@@ -175,8 +175,11 @@ class ControladorDron:
         self.tiempoDeVuelo = (endExecution - self.initExecution).total_seconds()
     
     def updateTiempoVuelo(self):
-        self.tiempoDeVuelo = (datetime.datetime.now() - self.initExecution).total_seconds()
-        return self.tiempoDeVuelo
+        if(not self.finished):
+            self.tiempoDeVuelo = (datetime.datetime.now() - self.initExecution).total_seconds()
+            return self.tiempoDeVuelo
+        else:
+            return self.tiempoDeVuelo
 
     def kafkaData(self):
         """
