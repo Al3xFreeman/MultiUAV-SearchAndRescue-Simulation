@@ -271,6 +271,38 @@ if(output):
     threadMonitor = threading.Thread(target=monitorDrones)
     thread_list_start.append(threadMonitor)
 
+
+
+def sendResumen():
+    global drones
+    global producerCoords
+    time.sleep(60)
+    print("START RESUMEN | LEN drones: ", len(drones))
+    bateriasNecesarias = 0
+    while(not allDronesFinished(drones)):
+        tiempoVueloTotal = 0
+        for d in drones:
+            tiempoVueloTotal += d.updateTiempoVuelo()
+            #if(d.tiempoDeVuelo > tiempoVueloMax):
+            #    tiempoVueloMax = d.tiempoDeVuelo
+            bateriasNecesarias += d.bateriasUsadas
+        #print("Tiempo vuelo total:", tiempoVueloTotal, "| Tiempo medio:", tiempoVueloTotal/len(drones),"| tiempo Max", tiempoVueloMax, "\nBaterias:", bateriasNecesarias, "| Baterias media:", bateriasNecesarias/len(drones))
+        dataEndMission = {}
+        dataEndMission['type'] = "update"
+        dataEndMission['tiempoVueloTotal'] = tiempoVueloTotal
+        dataEndMission['tiempoVueloMedio'] = tiempoVueloTotal/len(drones)
+        #dataEndMission['tiempoVueloMax'] = tiempoVueloMax
+        dataEndMission['bateriasTotal'] = bateriasNecesarias
+        dataEndMission['bateriasMedia'] = bateriasNecesarias/len(drones)
+
+
+        setupMsg = json.dumps(dataEndMission)
+        producerCoords.produce(setupMsg.encode('ascii'))
+        time.sleep(0.2)
+    print("END RESUMEN")
+threadUpdate = threading.Thread(target=sendResumen)
+thread_list_start.append(threadUpdate)
+
 print("Numero de threads: ",len(thread_list_start))
 
 for thread in thread_list_start:
@@ -279,10 +311,15 @@ for thread in thread_list_start:
 for thread in thread_list_start:
     thread.join()
 
-def printResumen():
+tiempoVueloTotal = 0
+tiempoVueloMax = 0
+bateriasNecesarias = 0
+
+def calcResumen():
     tiempoVueloTotal = 0
     tiempoVueloMax = 0
     bateriasNecesarias = 0
+
     for d in drones:
         tiempoVueloTotal += d.tiempoDeVuelo
         if(d.tiempoDeVuelo > tiempoVueloMax):
@@ -294,9 +331,24 @@ def printResumen():
     print("Tiempo de vuelo total: ", tiempoVueloTotal, "||| Tiempo de vuelo medio: ", tiempoVueloTotal/num_drones, "||| Tiempo de vuelo max: ", tiempoVueloMax)
     print("Número de baterias usadas: ", bateriasNecesarias, "||| Baterías usadas de media: ", bateriasNecesarias/num_drones)
 
-printResumen()
+    
+    dataEndMission = {}
+    dataEndMission['type'] = "end"
+    dataEndMission['tiempoVueloTotal'] = tiempoVueloTotal
+    dataEndMission['tiempoVueloMedio'] = tiempoVueloTotal/num_drones
+    dataEndMission['tiempoVueloMax'] = tiempoVueloMax
+    dataEndMission['bateriasTotal'] = bateriasNecesarias
+    dataEndMission['bateriasMedia'] = bateriasNecesarias/num_drones
+
+
+    setupMsg = json.dumps(dataEndMission)
+    producerCoords.produce(setupMsg.encode('ascii'))
+    
+
+calcResumen()
 
 print("TUTUTUTUTU")
+
 
 producerCoords.stop()
 #for i in range(num_drones):

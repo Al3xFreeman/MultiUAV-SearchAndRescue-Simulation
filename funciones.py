@@ -82,6 +82,7 @@ class ControladorDron:
         self.wayPointLocations = wayPointLocations
 
         self.tiempoDeVuelo = 0
+        self.initExecution = datetime.datetime.now()
         self.KafkaClient = KafkaClient(hosts="localhost:9092")
         # Connect to the Vehicle
         #print('Connecting to vehicle on: %s' % self.connection_string)
@@ -116,7 +117,7 @@ class ControladorDron:
        
     def iniciaDron(self, camaraActivada):
 
-        initExecution = datetime.datetime.now()
+        self.initExecution = datetime.datetime.now()
 
         #Threads para:
         # - La ejecución del movimiento del dron
@@ -171,8 +172,12 @@ class ControladorDron:
 
         endExecution = datetime.datetime.now()
 
-        self.tiempoDeVuelo = (endExecution - initExecution).total_seconds()
+        self.tiempoDeVuelo = (endExecution - self.initExecution).total_seconds()
     
+    def updateTiempoVuelo(self):
+        self.tiempoDeVuelo = (datetime.datetime.now() - self.initExecution).total_seconds()
+        return self.tiempoDeVuelo
+
     def kafkaData(self):
         """
         Sends drone position, video feed and other relevant data via kafka to aggreagte all the avalable information.
@@ -186,7 +191,7 @@ class ControladorDron:
         
         #JSON with the coordinates
         dataInterval = 0.25
-        defaultSpeed = 10
+        defaultSpeed = 9
         data = {}
         data['id'] = self.id
         prevPos = self.vehicle.location.global_frame

@@ -15,6 +15,10 @@
         <p>No te diviertas</p>
         <div id="map" style="width:900px; height:500px"></div>
 
+        <div> <h2> Resultados de la simulación: </h2> </div>
+        <div id = "tiempoEjecucion"></div>
+        <div id = "baterias"></div>
+
         <script>
             function sleep(ms) {
                 return new Promise(resolve => setTimeout(resolve, ms));
@@ -39,7 +43,7 @@
             var lines;
             var pol;
             var homes;
-            
+            var prevPos;
             //var prevPos = Array(20).fill([0,0,0]);
 
 
@@ -49,10 +53,11 @@
                 obj = JSON.parse(e.data);
                 console.log(obj);
 
-                console.log(pol?.length || 0)
-
                 if(obj.type === "setup") {
                     //Clean what was before
+                    document.getElementById("tiempoEjecucion").innerHTML = "whatever";
+                    document.getElementById("baterias").innerHTML = "whatever";
+
                     for(var i = 0; i < mapMarkers?.length || 0; i++){
                         map.removeLayer(mapMarkers[i]);
                     }
@@ -71,15 +76,10 @@
                     pol = []
                     homes = []
 
-
-                    obj = JSON.parse(e.data);
-                    console.log(obj);
-
                     var homeLat = obj.homeLat;
                     var homeLon = obj.homeLon;
                     //var homeAlt = obj.homeAlt;
-                    var prevPos = Array(obj.numDrones).fill([homeLat,homeLon]);
-                    
+                    prevPos = Array(obj.numDrones).fill([homeLat,homeLon]);
                     var pol = obj.pol;
                     L.polygon(pol, {color: 'red'}).addTo(map);
                     pol.push(pol)
@@ -87,7 +87,29 @@
                     homeMarker = L.marker([homeLat, homeLon], {icon: blackIcon}).addTo(map);
                     homes.push(homeMarker);
                 } else if(obj.type === "end") {
-                    //Print simulation results below the map
+                    
+                    tiempoTotal = obj.tiempoVueloTotal;
+                    tiempoMedio = obj.tiempoVueloMedio;
+                    tiempoMax = obj.tiempoVueloMax;
+                    bateriasTotal = obj.bateriasTotal;
+                    bateriasMedia = obj.bateriasMedia;
+                    
+                    document.getElementById("tiempoEjecucion").innerHTML = "Tiempo total de vuelo: " + tiempoTotal.toFixed(2) + " | Tiempo medio de vuelo: " + tiempoMedio.toFixed(2) + " | Tiempo máximo de vuelo: " + tiempoMax.toFixed(2);
+                    document.getElementById("baterias").innerHTML = "Baterias totales usadas: " + bateriasTotal + " | Baterías usadas de media: " + bateriasMedia.toFixed(2);
+                    
+
+                } else if(obj.type == "update") {
+                    tiempoTotal = obj.tiempoVueloTotal;
+                    tiempoMedio = obj.tiempoVueloMedio;
+                    //tiempoMax = obj.tiempoVueloMax;
+                    bateriasTotal = obj.bateriasTotal;
+                    bateriasMedia = obj.bateriasMedia;
+                    
+                    document.getElementById("tiempoEjecucion").innerHTML = "Tiempo total de vuelo: " + tiempoTotal.toFixed(2) + " | Tiempo medio de vuelo: " + tiempoMedio.toFixed(2); //+ " | Tiempo máximo de vuelo: " + tiempoMax;
+                    document.getElementById("baterias").innerHTML = "Baterias totales usadas: " + bateriasTotal + " | Baterías usadas de media: " + bateriasMedia.toFixed(2);
+                    
+                } else {
+                    console.log("Tipo de datos no reconocido")
                 }
             })
 
