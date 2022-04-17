@@ -67,7 +67,7 @@ objetivoDetectado = False
 #print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
 posicionObjetivo = None
 
-generadorRutas = GeneraRutas(file = "puntosPoligono.txt", granularity=granularity, modo=modo)
+generadorRutas = GeneraRutas(file = "puntosPoligono2.txt", granularity=granularity, modo=modo)
 (rutas, coordenadasPol) = generadorRutas.generaRuta()
 
 if modo == Modos.Single:
@@ -278,9 +278,10 @@ def sendResumen():
     global producerCoords
     time.sleep(60)
     print("START RESUMEN | LEN drones: ", len(drones))
-    bateriasNecesarias = 0
+    
     while(not allDronesFinished(drones)):
         tiempoVueloTotal = 0
+        bateriasNecesarias = 0
         for d in drones:
             tiempoVueloTotal += d.updateTiempoVuelo()
             #if(d.tiempoDeVuelo > tiempoVueloMax):
