@@ -170,13 +170,38 @@ def allDronesFinished(drones : List[ControladorDron]):
     
     return True
 
-finishMonitor = False
+def allDronesFinishedCommunication(drones : List[ControladorDron]):
+    for drone in drones:
+        if not drone.finishCommunication:
+            return False
+    
+    return True
+
+def communicateDrones():
+    global objetivoDetectado
+    time.sleep(30)
+    print("COMUNICATE DRONES LEN: ", len(drones))
+    finishCominicate = False
+    while(not finishCominicate):
+        print("FINISH COM? ", finishCominicate)
+        for dron in drones:
+            if(dron.objetivoEncontrado):
+                print("BRO, OBJETOVO ENCONTRADO")
+                print("Procediendo a terminar la ejecución del resto de drones")
+                for d in drones:
+                    d.finished = True
+
+                finishCominicate = True
+                break
+        time.sleep(1)
+    print("END COMUNICATE DRONES")
 
 def monitorDrones():
     global objetivoDetectado
+    
     #Damos tiempo a que se inicien los drones
     time.sleep(30)
-    global finishMonitor
+    print("MONITOR LEN DRONES: ", len(drones))
     finishMonitor = False
     while(not finishMonitor):
         print()
@@ -200,16 +225,16 @@ def monitorDrones():
                 objetivoDetectado = True
                 posicionObjetivo = dron.vehicle.location.global_frame
 
-                print("Procediendo a terminar la ejecución del resto de drones")
-                for d in drones:
-                    d.finished = True
+                #print("Procediendo a terminar la ejecución del resto de drones")
+                #for d in drones:
+                #    d.finished = True
 
 
         for dron in drones:
             #TODO: Hacer que la comprobación de si han terminado no dependa de si hay o no drones
             #   Ya que si se están iniciando, peta. Dejarlo como una variable del programa principal que sea controlada por la ejecución de cada dron
             #print("FINISHED: ", dron.finished)
-            if(not dron.finished):
+            if(not dron.finishCommunication):
                 dron.getInfo()
             else:
                 print("Dron: ", dron.id, " ha terminado")
@@ -271,7 +296,8 @@ if(output):
     threadMonitor = threading.Thread(target=monitorDrones)
     thread_list_start.append(threadMonitor)
 
-
+threadCommunication = threading.Thread(target=communicateDrones)
+thread_list_start.append(threadCommunication)
 
 def sendResumen():
     global drones
@@ -279,7 +305,7 @@ def sendResumen():
     time.sleep(60)
     print("START RESUMEN | LEN drones: ", len(drones))
     
-    while(not allDronesFinished(drones)):
+    while(not allDronesFinishedCommunication(drones)):
         tiempoVueloTotal = 0
         bateriasNecesarias = 0
         for d in drones:

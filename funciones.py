@@ -74,6 +74,7 @@ class ControladorDron:
         self.connection_string = connect
 
         self.finished = False
+        self.finishCommunication = False
         self.objetivoEncontrado = False
         self.posicionObjetivo = None
         self.video = None
@@ -199,7 +200,7 @@ class ControladorDron:
         data['id'] = self.id
         prevPos = self.vehicle.location.global_frame
         print("INICIA KAFKA")
-        while(not self.finished):
+        while(not self.finishCommunication):
             data['date'] = datetime.datetime.now()
             data['latitude'] = self.vehicle.location.global_frame.lat
             data['longitude'] = self.vehicle.location.global_frame.lon
@@ -233,6 +234,9 @@ class ControladorDron:
             print("VACA ENCONTRADA!!!")
             self.posicionObjetivo = self.vehicle.location.global_frame
             self.objetivoEncontrado = True
+
+            #Ends the video detection
+            self.video.ejecuta_video = False
         time.sleep(0.3)
         print("DETECCIÓN TERMINADA")        
 
@@ -530,7 +534,7 @@ class ControladorDron:
         
         print("Dron: ", self.id, " ha llegado a casa")
         self.vehicle.close()
-        self.finished = True
+        self.finishCommunication = True
         #Cerrar la conexión
         
 
