@@ -1,4 +1,3 @@
-from statistics import mode
 import dronekit as dk
 import dronekit_sitl as dk_sitl
 import time
@@ -12,8 +11,7 @@ import math
 
 import threading
 
-from random import randrange
-
+import argparse
 #COmprobar antes si se le ha mandado connection String, si 
 #Inicia el simulador
 
@@ -178,30 +176,25 @@ def allDronesFinishedCommunication(drones : List[ControladorDron]):
     return True
 
 def communicateDrones():
-    global objetivoDetectado
     time.sleep(30)
-    print("COMUNICATE DRONES LEN: ", len(drones))
-    finishCominicate = False
-    while(not finishCominicate):
-        print("FINISH COM? ", finishCominicate)
+    finishComunicate = False
+    while(not finishComunicate and not allDronesFinishedCommunication(drones)):
         for dron in drones:
             if(dron.objetivoEncontrado):
-                print("BRO, OBJETOVO ENCONTRADO")
                 print("Procediendo a terminar la ejecución del resto de drones")
                 for d in drones:
                     d.finished = True
 
-                finishCominicate = True
+                finishComunicate = True
                 break
         time.sleep(1)
-    print("END COMUNICATE DRONES")
+    print("FINISH COMUNICATE")
 
 def monitorDrones():
     global objetivoDetectado
     
     #Damos tiempo a que se inicien los drones
     time.sleep(30)
-    print("MONITOR LEN DRONES: ", len(drones))
     finishMonitor = False
     while(not finishMonitor):
         print()
@@ -374,16 +367,10 @@ def calcResumen():
 
 calcResumen()
 
-print("TUTUTUTUTU")
+print("Missión terminada")
 
 
 producerCoords.stop()
-#for i in range(num_drones):
-#    nuevoDron(i)
-
-
-
-
 """
 def runMission(i):
 
