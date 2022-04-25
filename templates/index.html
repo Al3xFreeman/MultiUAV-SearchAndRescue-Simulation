@@ -19,7 +19,32 @@
         <div id = "tiempoEjecucion"></div>
         <div id = "baterias"></div>
 
+        <button id="botonMission">Inicia misión!</button>
+
         <script>
+            
+            
+
+            document.getElementById("botonMission").addEventListener("click",
+                function() {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", "/sendMission", true);
+                    xhr.onload = function () {
+                        // do something to response
+                        console.log(this.responseText);
+                    }
+                    
+                    //var msgJson = JSON.stringify(data)
+
+                    var data = new FormData();
+                    data.append('numDrones', 3);
+                    data.append("prueba", "test")
+                    xhr.send(data)},
+                false
+            );
+
+
+
             function sleep(ms) {
                 return new Promise(resolve => setTimeout(resolve, ms));
             }
@@ -30,7 +55,7 @@
                 id: 'mapbox/streets-v11',
                 tileSize: 512,
                 zoomOffset: -1,
-                accessToken: ''
+                accessToken: 'pk.eyJ1IjoiYWxleGZyZWVtYW4iLCJhIjoiY2wxdHZseTZjMDJmbzNranMzeGptamhvMyJ9.Nx2z6wI47Vt_6pi8DBvY4g'
             }).addTo(map);
             
             
@@ -64,13 +89,15 @@
                     for(var i = 0; i < lines?.length || 0; i++){
                         map.removeLayer(lines[i]);
                     }
+                    console.log("Poligono len: ", pol?.length || 0);
+                    console.log(pol);
                     for(var i = 0; i < pol?.length || 0; i++){
                         map.removeLayer(pol[i]);
                     }
                     for(var i = 0; i < homes?.length || 0; i++){
                         map.removeLayer(homes[i]);
                     }
-
+                    
                     mapMarkers = []
                     lines = []
                     pol = []
@@ -80,9 +107,12 @@
                     var homeLon = obj.homeLon;
                     //var homeAlt = obj.homeAlt;
                     prevPos = Array(obj.numDrones).fill([homeLat,homeLon]);
-                    var pol = obj.pol;
-                    L.polygon(pol, {color: 'red'}).addTo(map);
-                    pol.push(pol)
+                    var poligon = [obj.pol];
+                    console.log("Len obj.pol: ", obj.pol.length);
+                    L.polygon(poligon, {color: 'red'}).addTo(map);
+                    pol.push(poligon)
+
+                    console.log("Len array de pol: ", pol.length);
 
                     homeMarker = L.marker([homeLat, homeLon], {icon: blackIcon}).addTo(map);
                     homes.push(homeMarker);

@@ -1,0 +1,345 @@
+import dronekit as dk
+import time
+import math
+import threading
+
+from typing import List
+
+#Local source files
+from funciones import *
+from generadorRutas import *
+
+
+
+class droneMissionSimualtion():
+    def __init__(self, id, numDrones = 1, granularity = 40, output = False, alert = False, homeLat = 0, homeLon = 0):
+        self._id = id
+        self._numDrones = numDrones
+        self._granularity = granularity
+        self._output = output
+        self._alert = alert
+        self._homeLat = homeLat
+        self._homeLon = homeLon
+
+    def executeMission(self):
+        print("Iniciando misión con ID: ", self._id)            
+        print("NUMERO DE DRONES: ", self._numDrones)
+        time.sleep(2)
+
+        #controladores : List[ControladorDron] = [] 
+        sims : List[IniciaSITL] = []
+        drones : List[ControladorDron] = []
+
+        modo = Modos.Single
+
+        objetivoDetectado = False
+
+        #print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
+        posicionObjetivo = None
+
+        generadorRutas = GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo)
+        (rutas, coordenadasPol) = generadorRutas.generaRuta()
+
+        if modo == Modos.Single:
+            #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
+            def divideRutaEntreDrones(numDrones, ruta):
+                segmentSize = math.floor(len(ruta)/self._numDrones)
+                remainingSpots = len(ruta) - (segmentSize * self._numDrones)
+                spotsPerDrone = [segmentSize] * self._numDrones
+                index = 0
+                print("Remaining spots:", remainingSpots)
+                while(remainingSpots != 0):
+                    
+                    if(index % self._numDrones == 0):
+                        index = 0
+                    print("index: ", index)
+                    spotsPerDrone[index] += 1
+                    remainingSpots -= 1
+                    index += 1
+                print("Spots per drone")
+                print(spotsPerDrone)
+                rutaSegmentadas = []
+                desde = 0
+                hasta = 0
+                for i in range(numDrones):
+                    hasta += spotsPerDrone[i]
+                    rutaSegmentadas.append(ruta[desde : hasta])
+
+                    desde = hasta
+
+                return rutaSegmentadas
+            
+            rutasMultDrones = divideRutaEntreDrones(self._numDrones, rutas[0])
+            for i, e in enumerate(rutasMultDrones):
+                print("ID: ", i, " | LEN: ", len(e))
+
+        def nuevoDron(id, camaraActivada, ruta):
+            global soloUnaCamara
+            time.sleep(id * 0.2)
+            print("INICIANDO DRON ID: ", id)
+            sim = IniciaSITL(self._homeLat, self._homeLon)
+
+            print("SITL INICIADO")
+
+            sims.append(sim)
+            #print("CON: ", sim.connection_string)
+            
+            dron = ControladorDron(sim.connection_string, id, len(ruta), lastPoint=ruta[-1], wayPointLocations=ruta)
+            drones.append(dron)
+            #controladores.append(ControladorDron(sim.connection_string, id))
+
+            #dron.despega(5)
+
+            dron.vehicle.mode = dk.VehicleMode("AUTO")
+            
+            print("RUTA DEL DRON con ID:", id, " | LEN: ", len(ruta))
+
+            dron.createMission(ruta)
+            
+            print("Esperando a que el dron se inicie y se establezca la misión")
+            time.sleep(1)
+            print("Iniciando dron")
+            dron.iniciaDron(camaraActivada)
+            #Ver cómo va lo de instance_count de dronekit_sitl
+            #sim.sitl.instance += 1
+            #print("INSTANCIA: ", sim.sitl.instance)
+
+            time.sleep(25)
+            print("Cerrando el SITL")
+            sim.sitl.stop()
+
+
+        kafkaClient = KafkaClient(hosts="localhost:9092")
+
+        topicCoords = kafkaClient.topics["mapaDronesSetup"]
+        producerCoords = topicCoords.get_sync_producer()
+
+        data = {}
+        data['type'] = "setup"
+        data['homeLat'] = self._homeLat,
+        data['homeLon'] = self._homeLon
+        data['pol'] = coordenadasPol
+        data['numDrones'] = self._numDrones
+
+        setupMsg = json.dumps(data)
+        producerCoords.produce(setupMsg.encode('ascii'))
+
+
+        thread_list_start = []
+        camaraActivada = True
+
+        for i in range(self._numDrones):
+            threadDron = threading.Thread(target=nuevoDron, args=(i,camaraActivada, rutasMultDrones[i]))
+            camaraActivada = False
+            thread_list_start.append(threadDron)
+
+        def allDronesFinished(drones : List[ControladorDron]):
+            for drone in drones:
+                if not drone.finished:
+                    return False
+            
+            return True
+
+        def allDronesFinishedCommunication(drones : List[ControladorDron]):
+            for drone in drones:
+                if not drone.finishCommunication:
+                    return False
+            
+            return True
+
+        def communicateDrones():
+            global objetivoDetectado
+            time.sleep(30)
+            finishCominicate = False
+            while(not finishCominicate):
+                for dron in drones:
+                    if(dron.objetivoEncontrado):
+                        print("Procediendo a terminar la ejecución del resto de drones")
+                        for d in drones:
+                            d.finished = True
+
+                        finishCominicate = True
+                        break
+                time.sleep(1)
+
+        def monitorDrones():
+            global objetivoDetectado
+            
+            #Damos tiempo a que se inicien los drones
+            time.sleep(30)
+            finishMonitor = False
+            while(not finishMonitor):
+                print()
+                print()
+                print()
+                print()
+                print()
+                print()
+                print()
+                print()
+                print()
+                print()
+                print("**************************************************************************")
+                print("Obteniendo información sobre drones...")
+                print("NUMERO DE DRONES: ", len(drones))
+                
+                #Comprobación de si algún dron ha encontrado al objetivo
+                objetivoDetectado = False
+                for dron in drones:
+                    if(dron.objetivoEncontrado):
+                        objetivoDetectado = True
+                        posicionObjetivo = dron.vehicle.location.global_frame
+
+                        #print("Procediendo a terminar la ejecución del resto de drones")
+                        #for d in drones:
+                        #    d.finished = True
+
+
+                for dron in drones:
+                    #TODO: Hacer que la comprobación de si han terminado no dependa de si hay o no drones
+                    #   Ya que si se están iniciando, peta. Dejarlo como una variable del programa principal que sea controlada por la ejecución de cada dron
+                    #print("FINISHED: ", dron.finished)
+                    if(not dron.finishCommunication):
+                        dron.getInfo()
+                    else:
+                        print("Dron: ", dron.id, " ha terminado")
+
+                
+                if(not objetivoDetectado):
+                    print()
+                    print("----------------------")
+                    print()
+                    print("Objetivo NO encontrado")
+                    print()
+                    print("----------------------")
+                
+
+                print("Check if drones have finished")
+                if(allDronesFinished(drones)):
+                    print("Todos los drones han terminado.")
+                    print("El resultado de la búsqueda ha sido: ", end="")
+                    if objetivoDetectado:
+                        print(" ***** ÉXITO ***** ")
+                        print("Objetivo se encuentra en la posición: ", posicionObjetivo)
+                        
+                    else:
+                        print(" *** FRACASO ***")
+                    
+                    print("**************************************************************************")
+                    finishMonitor = True
+                    break
+                
+                print("**************************************************************************")
+                time.sleep(0.2)
+
+
+        def alertCommands():
+            global objetivoDetectado
+            
+            while len(drones) == 0:
+                time.sleep(0.5)
+                print("Venga tu")
+                pass
+            print("LEN?????", len(drones))
+            d = drones[0]
+            while(not (objetivoDetectado or allDronesFinished(drones))):
+                time.sleep(0.5)
+                if(len(d.vehicle.commands) < 8):
+                    print("AAAAAAHHHHHH FILHO DE PUTA AGORA SIM ENTENDO, LEN: ", len(d.vehicle.commands))
+
+                if(not d.vehicle.home_location):
+                    print("NO TIENE CASA")
+                #print("ObjetivoDetectado: ", objetivoDetectado, "||| allFInished: ", allDronesFinished(drones))
+
+            print("ALERTA TERMINADO")
+
+        if(self._alert):
+            threadAlert = threading.Thread(target=alertCommands)
+            thread_list_start.append(threadAlert)
+
+        if(self._output):
+            threadMonitor = threading.Thread(target=monitorDrones)
+            thread_list_start.append(threadMonitor)
+
+        threadCommunication = threading.Thread(target=communicateDrones)
+        thread_list_start.append(threadCommunication)
+
+        def sendResumen():
+            global drones
+            global producerCoords
+            time.sleep(60)
+            print("START RESUMEN | LEN drones: ", len(drones))
+            
+            while(not allDronesFinishedCommunication(drones)):
+                tiempoVueloTotal = 0
+                bateriasNecesarias = 0
+                for d in drones:
+                    tiempoVueloTotal += d.updateTiempoVuelo()
+                    #if(d.tiempoDeVuelo > tiempoVueloMax):
+                    #    tiempoVueloMax = d.tiempoDeVuelo
+                    bateriasNecesarias += d.bateriasUsadas
+                #print("Tiempo vuelo total:", tiempoVueloTotal, "| Tiempo medio:", tiempoVueloTotal/len(drones),"| tiempo Max", tiempoVueloMax, "\nBaterias:", bateriasNecesarias, "| Baterias media:", bateriasNecesarias/len(drones))
+                dataEndMission = {}
+                dataEndMission['type'] = "update"
+                dataEndMission['tiempoVueloTotal'] = tiempoVueloTotal
+                dataEndMission['tiempoVueloMedio'] = tiempoVueloTotal/len(drones)
+                #dataEndMission['tiempoVueloMax'] = tiempoVueloMax
+                dataEndMission['bateriasTotal'] = bateriasNecesarias
+                dataEndMission['bateriasMedia'] = bateriasNecesarias/len(drones)
+
+
+                setupMsg = json.dumps(dataEndMission)
+                producerCoords.produce(setupMsg.encode('ascii'))
+                time.sleep(0.033)
+            print("END RESUMEN")
+        threadUpdate = threading.Thread(target=sendResumen)
+        thread_list_start.append(threadUpdate)
+
+        print("Numero de threads: ",len(thread_list_start))
+
+        for thread in thread_list_start:
+            thread.start()
+
+        for thread in thread_list_start:
+            thread.join()
+
+        tiempoVueloTotal = 0
+        tiempoVueloMax = 0
+        bateriasNecesarias = 0
+
+        def calcResumen():
+            tiempoVueloTotal = 0
+            tiempoVueloMax = 0
+            bateriasNecesarias = 0
+
+            for d in drones:
+                tiempoVueloTotal += d.tiempoDeVuelo
+                if(d.tiempoDeVuelo > tiempoVueloMax):
+                    tiempoVueloMax = d.tiempoDeVuelo
+                bateriasNecesarias += d.bateriasUsadas
+
+            #Hacer una estadística para ver cuánto afecta que la ruta del dron tenga muchos o pocos giros al tiempo de vuelo total
+
+            print("Tiempo de vuelo total: ", tiempoVueloTotal, "||| Tiempo de vuelo medio: ", tiempoVueloTotal/self._numDrones, "||| Tiempo de vuelo max: ", tiempoVueloMax)
+            print("Número de baterias usadas: ", bateriasNecesarias, "||| Baterías usadas de media: ", bateriasNecesarias/self._numDrones)
+
+            
+            dataEndMission = {}
+            dataEndMission['type'] = "end"
+            dataEndMission['tiempoVueloTotal'] = tiempoVueloTotal
+            dataEndMission['tiempoVueloMedio'] = tiempoVueloTotal/self._numDrones
+            dataEndMission['tiempoVueloMax'] = tiempoVueloMax
+            dataEndMission['bateriasTotal'] = bateriasNecesarias
+            dataEndMission['bateriasMedia'] = bateriasNecesarias/self._numDrones
+
+
+            setupMsg = json.dumps(dataEndMission)
+            producerCoords.produce(setupMsg.encode('ascii'))
+            
+
+        calcResumen()
+
+        print("Missión terminada")
+
+
+        producerCoords.stop()
