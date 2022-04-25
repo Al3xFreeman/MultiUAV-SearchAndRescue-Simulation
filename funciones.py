@@ -1,27 +1,15 @@
 from cmath import cos, sin
-from concurrent.futures import thread
-from platform import release
 import dronekit as dk
-import argparse
 import time
 import math
 import pyproj
-from shapely.geometry import Point, Polygon
 
 from pymavlink import mavutil
 
 import datetime
 
-import numpy as np
-import matplotlib.pyplot as plt
-
 import checks
-from dronekit import LocationGlobalRelative, LocationGlobal, Command
-
-from python_tsp.distances import great_circle_distance_matrix
-from python_tsp.heuristics import solve_tsp_local_search
-
-from typing import List
+from dronekit import LocationGlobalRelative, Command
 
 from vidDetect import *
 import threading
@@ -92,30 +80,12 @@ class ControladorDron:
         #Set max velocity to 10 m/s
         self.vehicle.airspeed = 10
         self.vehicle.wait_ready('airspeed')
-
-        print("MAX ", self.vehicle.airspeed)
-        #self.download_mission()
-        #print(" Waiting for home location", end='')
-        #while not self.vehicle.home_location:
-        #    print('.', end='')
-        #    time.sleep(0.5)
-        #print(" Waiting for home location ...", end='')
-        #while not self.vehicle.home_location:
-        #    cmds = self.vehicle.commands
-        #    cmds.download()
-        #    cmds.wait_ready()
-            
-        #    if not self.vehicle.home_location:
-        #        print(".", end='')
-        #    time.sleep(1)
-        #print("ale")
-            
+  
         #print("ID: ", id, " ||| ConnectionString: ", self.connection_string, "||| HOME:", self.vehicle.home_location)
         self.outputMode = "Normal"
         self.bateriasUsadas = 0 #Veces que ha ido a repostar las baterías
-        self.file = None
+        self.file = None   
 
-       
     def iniciaDron(self, camaraActivada):
 
         self.initExecution = datetime.datetime.now()
@@ -220,6 +190,7 @@ class ControladorDron:
             prevPos = self.vehicle.location.global_frame
             time.sleep(dataInterval)
         
+        print("KAFKA TERMINA")
 
     def detectaVideoThread(self):
         self.video.runVideoDetection()
