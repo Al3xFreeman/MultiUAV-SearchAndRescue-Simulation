@@ -6,10 +6,10 @@ import threading
 from typing import List
 
 #Local source files
-from funciones import *
-from generadorRutas import *
-
-
+import funciones as func
+#from funciones import *
+import generadorRutas as genRut
+#from generadorRutas import *
 
 class droneMissionSimualtion():
     def __init__(self, id, numDrones = 1, granularity = 40, output = False, alert = False, homeLat = 0, homeLon = 0):
@@ -27,20 +27,20 @@ class droneMissionSimualtion():
         time.sleep(2)
 
         #controladores : List[ControladorDron] = [] 
-        sims : List[IniciaSITL] = []
-        drones : List[ControladorDron] = []
-
-        modo = Modos.Single
+        sims : List[func.IniciaSITL] = []
+        drones : List[func.ControladorDron] = []
+        self._d = drones
+        modo = genRut.Modos.Single
 
         objetivoDetectado = False
 
         #print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
         posicionObjetivo = None
 
-        generadorRutas = GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo)
+        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo)
         (rutas, coordenadasPol) = generadorRutas.generaRuta()
 
-        if modo == Modos.Single:
+        if modo == genRut.Modos.Single:
             #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
             def divideRutaEntreDrones(numDrones, ruta):
                 segmentSize = math.floor(len(ruta)/self._numDrones)
@@ -74,17 +74,16 @@ class droneMissionSimualtion():
                 print("ID: ", i, " | LEN: ", len(e))
 
         def nuevoDron(id, camaraActivada, ruta):
-            global soloUnaCamara
             time.sleep(id * 0.2)
             print("INICIANDO DRON ID: ", id)
-            sim = IniciaSITL(self._homeLat, self._homeLon)
+            sim = func.IniciaSITL(self._homeLat, self._homeLon)
 
             print("SITL INICIADO")
 
             sims.append(sim)
             #print("CON: ", sim.connection_string)
             
-            dron = ControladorDron(sim.connection_string, id, len(ruta), lastPoint=ruta[-1], wayPointLocations=ruta)
+            dron = func.ControladorDron(sim.connection_string, id, len(ruta), lastPoint=ruta[-1], wayPointLocations=ruta)
             drones.append(dron)
             #controladores.append(ControladorDron(sim.connection_string, id))
 
@@ -109,19 +108,19 @@ class droneMissionSimualtion():
             sim.sitl.stop()
 
 
-        kafkaClient = KafkaClient(hosts="localhost:9092")
+        kafkaClient = func.KafkaClient(hosts="localhost:9092")
 
         topicCoords = kafkaClient.topics["mapaDronesSetup"]
         producerCoords = topicCoords.get_sync_producer()
 
         data = {}
         data['type'] = "setup"
-        data['homeLat'] = self._homeLat,
+        data['homeLat'] = self._homeLat
         data['homeLon'] = self._homeLon
         data['pol'] = coordenadasPol
         data['numDrones'] = self._numDrones
 
-        setupMsg = json.dumps(data)
+        setupMsg = func.json.dumps(data)
         producerCoords.produce(setupMsg.encode('ascii'))
 
 
@@ -133,14 +132,14 @@ class droneMissionSimualtion():
             camaraActivada = False
             thread_list_start.append(threadDron)
 
-        def allDronesFinished(drones : List[ControladorDron]):
+        def allDronesFinished(drones : List[func.ControladorDron]):
             for drone in drones:
                 if not drone.finished:
                     return False
             
             return True
 
-        def allDronesFinishedCommunication(drones : List[ControladorDron]):
+        def allDronesFinishedCommunication(drones : List[func.ControladorDron]):
             for drone in drones:
                 if not drone.finishCommunication:
                     return False
@@ -148,19 +147,19 @@ class droneMissionSimualtion():
             return True
 
         def communicateDrones():
-            global objetivoDetectado
             time.sleep(30)
-            finishCominicate = False
-            while(not finishCominicate):
+            finishComunicate = False
+            while(not finishComunicate and not allDronesFinishedCommunication(drones)):
                 for dron in drones:
                     if(dron.objetivoEncontrado):
                         print("Procediendo a terminar la ejecución del resto de drones")
                         for d in drones:
                             d.finished = True
 
-                        finishCominicate = True
+                        finishComunicate = True
                         break
                 time.sleep(1)
+            print("FINISH COMUNICATE")
 
         def monitorDrones():
             global objetivoDetectado
@@ -265,8 +264,6 @@ class droneMissionSimualtion():
         thread_list_start.append(threadCommunication)
 
         def sendResumen():
-            global drones
-            global producerCoords
             time.sleep(60)
             print("START RESUMEN | LEN drones: ", len(drones))
             
@@ -288,7 +285,7 @@ class droneMissionSimualtion():
                 dataEndMission['bateriasMedia'] = bateriasNecesarias/len(drones)
 
 
-                setupMsg = json.dumps(dataEndMission)
+                setupMsg = func.json.dumps(dataEndMission)
                 producerCoords.produce(setupMsg.encode('ascii'))
                 time.sleep(0.033)
             print("END RESUMEN")
@@ -333,7 +330,7 @@ class droneMissionSimualtion():
             dataEndMission['bateriasMedia'] = bateriasNecesarias/self._numDrones
 
 
-            setupMsg = json.dumps(dataEndMission)
+            setupMsg = func.json.dumps(dataEndMission)
             producerCoords.produce(setupMsg.encode('ascii'))
             
 

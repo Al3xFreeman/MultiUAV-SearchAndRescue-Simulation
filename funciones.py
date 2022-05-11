@@ -61,6 +61,7 @@ class ControladorDron:
         self.id = id
         self.connection_string = connect
 
+        self.locations = wayPointLocations
         self.finished = False
         self.finishCommunication = False
         self.objetivoEncontrado = False
@@ -69,6 +70,7 @@ class ControladorDron:
         self.numberOfPoints = numPoints
         self.lastPoint = lastPoint
         self.wayPointLocations = wayPointLocations
+        self.retHome = True
 
         self.tiempoDeVuelo = 0
         self.initExecution = datetime.datetime.now()
@@ -178,6 +180,7 @@ class ControladorDron:
             data['status'] = self.vehicle.mode.name
             data['battery'] = self.calculateRealBattery()
             data['checkpoint'] = self.vehicle.commands.next
+            data['retHome'] = self.retHome
             #print("MAX: ", self.vehicle.airspeed)
             speed = (get_distance_metres(self.vehicle.location.global_frame, prevPos)/dataInterval)
             data['normalizedSpeed'] = speed / defaultSpeed
@@ -462,7 +465,9 @@ class ControladorDron:
         self.vehicle.mode = dk.VehicleMode("AUTO")
         sem.release()
         #self.vehicle.send_mavlink #Para mandar comandos
-
+        pointIndex = 0
+        point = self.locations[pointIndex]
+        
         while not self.finished:
             nextwaypoint = self.vehicle.commands.next
             #print("ID: ", self.id, "||| POS: ", self.vehicle.location.global_frame, '||| Dist to WP (%s): %s' % (nextwaypoint, self.distance_to_current_waypoint()), end = '')
@@ -474,6 +479,15 @@ class ControladorDron:
             #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
             self.checkBattery(50, lvl)
+      
+            if(get_distance_metres(self.vehicle.location.global_frame, point) < 15):
+                pointIndex += 1
+                point = self.locations[pointIndex]
+                if(self.retHome):
+                    self.retHome = False
+
+            #if(self.retHome and (get_distance_metres(self.vehicle.location.global_frame, point) < 5)):
+            #    self.retHome = False
 
             if((self.vehicle.commands.next == self.numberOfPoints) and get_distance_metres(self.vehicle.location.global_frame, self.lastPoint) < 5):
                 print("DRON ", self.id, " HA LLEGADO AL FINAL")
@@ -528,7 +542,7 @@ class ControladorDron:
             self.vehicle.mode = dk.VehicleMode("RTL")
             #print("PERO TU TIENES CASA: ", self.vehicle._home_location)
             sem.release()
-
+            self.retHome = True
             sem.acquire()
 
             if not self.vehicle.home_location:

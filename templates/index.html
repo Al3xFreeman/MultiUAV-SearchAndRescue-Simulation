@@ -4,7 +4,7 @@
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
             integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
             crossorigin=""/>
-
+            <link rel="stylesheet" href="/static/style.css" />
         <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
             integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
             crossorigin=""></script>
@@ -12,19 +12,53 @@
     </head>
     <body>
         <h1>Mapa de la misión</h1>
-        <p>No te diviertas</p>
         <div id="map" style="width:900px; height:500px"></div>
 
         <div> <h2> Resultados de la simulación: </h2> </div>
         <div id = "tiempoEjecucion"></div>
         <div id = "baterias"></div>
-
-        <button id="botonMission">Inicia misión!</button>
+        <div id = "cameraFeed">
+            <img src="http://localhost:5000/1/0/camera">
+        </div>
+        <h1>Nueva Misión</h1>
+        <iframe name="dummyframe" id="dummyframe" style="display: none;"></iframe>
+        <form action="/sendMission" method="POST" id="formMission" target="dummyframe" >
+    
+          <div class="form__fieldset">
+            <label for="número de drones" class="form__label">Número de drones:</label>
+            <input type="number" name="numDrones" id="numDrones" class="form__input" />
+          </div>
+          <div class="form__fieldset">
+            <label for="granularidad" class="form__label">Granularidad:</label>
+            <input type="number" name="granularidad" id="granularidad" class="form__input" />
+          </div>
+    <!--
+          <div class="form__fieldset">
+            <label for="account" class="form__label">Account:</label>
+            <select name="account" id="account" class="form__input form__select">
+              <option value="Checking">Checking</option>
+              <option value="Savings">Savings</option>
+              <option value="Investment">Investment</option>
+            </select>
+          </div>
+    -->
+          <div class="form__fieldset">
+            <input
+              id="inputMission"
+              class="form__submit form__input"
+              type="submit"
+              value="Inicia misión"
+            />
+          </div>
+        </form>
 
         <script>
-            
-            
-
+            /*
+            document.getElementById('inputMission').addEventListener("click", () => {
+	            alert('Iniciando misión con x drones e y granularidad');
+            });
+            */
+            /*
             document.getElementById("botonMission").addEventListener("click",
                 function() {
                     var xhr = new XMLHttpRequest();
@@ -42,7 +76,7 @@
                     xhr.send(data)},
                 false
             );
-
+            */
 
 
             function sleep(ms) {
@@ -80,8 +114,8 @@
 
                 if(obj.type === "setup") {
                     //Clean what was before
-                    document.getElementById("tiempoEjecucion").innerHTML = "whatever";
-                    document.getElementById("baterias").innerHTML = "whatever";
+                    document.getElementById("tiempoEjecucion").innerHTML = "Iniciando...";
+                    document.getElementById("baterias").innerHTML = "Iniciando...";
 
                     for(var i = 0; i < mapMarkers?.length || 0; i++){
                         map.removeLayer(mapMarkers[i]);
@@ -198,11 +232,19 @@
                 mapMarkers[parseInt(obj.id)] = newMarker;
                 
                 pathCoords = connectTheDots(prevPos[obj.id][0], prevPos[obj.id][1], obj.latitude, obj.longitude)
-
+                opc = 1
+                if(!obj.retHome) {
+                    opc = 1
+                    clr = colorGradient(obj.normalizedSpeed, lowColor, mediumColor, highColor)
+                } else {
+                    opc = 0.1
+                    clr = 'rgb(220,220,220)'
+                }
                 var polyline = new L.Polyline(pathCoords, {
-                    color: colorGradient(obj.normalizedSpeed, lowColor, mediumColor, highColor),
+                    color: clr,
                     weight: 5,
-                    smoothFactor: 1
+                    smoothFactor: 1,
+                    opacity: opc
                 }).addTo(map);
                 lines.push(polyline);
                 
@@ -228,6 +270,12 @@
                 c.push([lat2, lon2]);
                 return c;
             }
+            
+            let grey = {
+                red: 217,
+                green: 83,
+                blue: 79
+            };
 
             let lowColor = {
                 red: 217,

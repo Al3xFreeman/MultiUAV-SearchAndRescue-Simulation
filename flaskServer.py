@@ -1,17 +1,20 @@
 from flask import Flask, render_template, Response, request
 from pykafka import KafkaClient, common
 import droneMissionSimulation as sim
+import time
+from typing import List
+
 
 def get_kafka_client():
     return KafkaClient(hosts="localhost:9092")
 
 app = Flask(__name__)
 
-missionList = []
+missionList : List[sim.droneMissionSimualtion] = []
 
 @app.route("/map")
 def index():
-        return render_template('index.html')
+    return render_template('index.html')
 
 
 @app.route("/topic/<topicname>")
@@ -32,7 +35,27 @@ def get_messages(topicname):
 def startMission():
     #missionData = request.values
     #print(missionData)
+    print("Nueva misión empezando")
+    #print(request.form)
+    
+    numDrones = int(request.form['numDrones'])
+    print("Number of drones: ", numDrones)
 
+    granularity = int(request.form['granularidad'])
+    print("Granularity: ", granularity)
+
+    print("Esperando")
+    time.sleep(5)
+    print("Ta luego")
     #Cada misión requiere de un id, comprobar que sea único
-    mission = sim.droneMissionSimualtion(id=1, homeLat=40.453010, homeLon=-3.732698)
+    mission = sim.droneMissionSimualtion(id=1, numDrones=numDrones, granularity=granularity, homeLat=40.453010, homeLon=-3.732698)
+    missionList.append(mission)
     mission.executeMission()
+    #return render_template('index.html')
+    return ('', 204)
+
+
+@app.route("/<missionId>/<dronId>/camera")
+def cameraDrone(missionId, dronId):
+    return Response(missionList[missionId]._d[dronId].video.frameAnnotated,
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
