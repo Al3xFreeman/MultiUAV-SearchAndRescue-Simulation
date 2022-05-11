@@ -482,6 +482,7 @@ class ControladorDron:
       
             if(get_distance_metres(self.vehicle.location.global_frame, point) < 15):
                 pointIndex += 1
+                pointIndex %= len(self.locations)
                 point = self.locations[pointIndex]
                 if(self.retHome):
                     self.retHome = False
