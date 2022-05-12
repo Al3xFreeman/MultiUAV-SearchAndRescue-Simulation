@@ -287,11 +287,7 @@ class droneMissionSimualtion():
         threadCommunication = threading.Thread(target=communicateDrones)
         thread_list_start.append(threadCommunication)
 
-        def sendResumen():
-            time.sleep(60)
-            print("START RESUMEN | LEN drones: ", len(drones))
-            
-            while(not allDronesFinishedCommunication(drones)):
+        def produceMissionInfo():
                 tiempoVueloTotal = 0
                 bateriasNecesarias = 0
                 for d in drones:
@@ -313,8 +309,18 @@ class droneMissionSimualtion():
 
                 setupMsg = func.json.dumps(dataEndMission)
                 producerCoords.produce(setupMsg.encode('ascii'))
+
+
+        def sendResumen():
+            time.sleep(60)
+            print("START RESUMEN | LEN drones: ", len(drones))
+            
+            while(not allDronesFinishedCommunication(drones)):
+                produceMissionInfo()
                 time.sleep(0.033)
             print("END RESUMEN")
+            produceMissionInfo()
+            
         threadUpdate = threading.Thread(target=sendResumen)
         thread_list_start.append(threadUpdate)
 
