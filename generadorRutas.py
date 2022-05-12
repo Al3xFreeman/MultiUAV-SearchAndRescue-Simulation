@@ -22,7 +22,7 @@ class Modos(Enum):
 
 
 class GeneraRutas:
-    def __init__(self, file, granularity, modo):
+    def __init__(self, file, granularity, modo, coordenadas: Polygon):
         #Genera la ruta para recorrer el área.
         #Posteriormente el dron se dirigirá hasta el punto de inicio y empezará a recorrerla
         #Cuando necesite recargar baterías, volverá a su "home".
@@ -31,6 +31,8 @@ class GeneraRutas:
         self.file = file
         self.granularity = granularity
         self.modo : Modos = modo
+        self._coords = coordenadas
+        #TODO USe Shapely methods to improve routes generation
 
     def generaRuta(self) -> List[int]:
         print("***********************************")

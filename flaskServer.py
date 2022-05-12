@@ -1,3 +1,4 @@
+from fileinput import filename
 from flask import Flask, render_template, Response, request
 from pykafka import KafkaClient, common
 import droneMissionSimulation as sim
@@ -31,6 +32,11 @@ def get_messages(topicname):
         
     return Response(events(), mimetype="text/event-stream")
 
+ALLOWED_EXTENSIONS = {'geojson'}
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @app.route("/sendMission", methods=['POST'])
 def startMission():
     #missionData = request.values
@@ -43,12 +49,18 @@ def startMission():
 
     granularity = int(request.form['granularidad'])
     print("Granularity: ", granularity)
+    print(request.files)
+    if 'fileGeoJSON' not in request.files:
+        return ('No está el archivo con el polígono', 401)
+
+    geoJSONfile = request.files['fileGeoJSON']
+    print("ARCHIVO", geoJSONfile.filename)
 
     print("Esperando")
     time.sleep(5)
     print("Ta luego")
     #Cada misión requiere de un id, comprobar que sea único
-    mission = sim.droneMissionSimualtion(id=1, numDrones=numDrones, granularity=granularity, homeLat=40.453010, homeLon=-3.732698)
+    mission = sim.droneMissionSimualtion(id=1, file=geoJSONfile, numDrones=numDrones, granularity=granularity, homeLat=40.453010, homeLon=-3.732698)
     missionList.append(mission)
     mission.executeMission()
     #return render_template('index.html')

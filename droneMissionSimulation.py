@@ -2,6 +2,7 @@ import dronekit as dk
 import time
 import math
 import threading
+import json
 
 from typing import List
 
@@ -10,10 +11,13 @@ import funciones as func
 #from funciones import *
 import generadorRutas as genRut
 #from generadorRutas import *
+from shapely.geometry import shape
+from shapely.geometry.polygon import Polygon
 
 class droneMissionSimualtion():
-    def __init__(self, id, numDrones = 1, granularity = 40, output = False, alert = False, homeLat = 0, homeLon = 0):
+    def __init__(self, id, file, numDrones = 1, granularity = 40, output = False, alert = False, homeLat = 0, homeLon = 0):
         self._id = id
+        self._file = file
         self._numDrones = numDrones
         self._granularity = granularity
         self._output = output
@@ -37,7 +41,15 @@ class droneMissionSimualtion():
         #print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
         posicionObjetivo = None
 
-        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo)
+        #TODO Check if geoJSON is valid
+        dataFile = json.load(self._file)
+        #print("QUE HAY AQUÍ ", dataFile)
+        coords= dataFile["features"][0]["geometry"]
+        #print("POLIGONO", coords)
+        fileShapely: Polygon = shape(coords)
+
+
+        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=fileShapely)
         (rutas, coordenadasPol) = generadorRutas.generaRuta()
 
         if modo == genRut.Modos.Single:

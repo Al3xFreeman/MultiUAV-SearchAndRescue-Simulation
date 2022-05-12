@@ -22,7 +22,7 @@
         </div>
         <h1>Nueva Misión</h1>
         <iframe name="dummyframe" id="dummyframe" style="display: none;"></iframe>
-        <form action="/sendMission" method="POST" id="formMission" target="dummyframe" >
+        <form action="/sendMission" method="POST" id="formMission" target="dummyframe" enctype="multipart/form-data">
     
           <div class="form__fieldset">
             <label for="número de drones" class="form__label">Número de drones:</label>
@@ -31,6 +31,10 @@
           <div class="form__fieldset">
             <label for="granularidad" class="form__label">Granularidad:</label>
             <input type="number" name="granularidad" id="granularidad" class="form__input" />
+          </div>
+          <div class="form__fieldset">
+              <label for="archivo con el polígono" class="form__label">Archivo a subir:</label>
+              <input type="file" name="fileGeoJSON" required />
           </div>
     <!--
           <div class="form__fieldset">
