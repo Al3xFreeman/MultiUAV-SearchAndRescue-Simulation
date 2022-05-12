@@ -17,6 +17,8 @@
         <div> <h2> Resultados de la simulación: </h2> </div>
         <div id = "tiempoEjecucion"></div>
         <div id = "baterias"></div>
+        <div id = "dronesFinished"></div>
+        <div id = "porcentaje"></div>
         <div id = "cameraFeed">
             <img src="http://localhost:5000/1/0/camera">
         </div>
@@ -96,7 +98,13 @@
                 accessToken: 'pk.eyJ1IjoiYWxleGZyZWVtYW4iLCJhIjoiY2wxdHZseTZjMDJmbzNranMzeGptamhvMyJ9.Nx2z6wI47Vt_6pi8DBvY4g'
             }).addTo(map);
             
-            
+            var numDrones;
+            var granularity;
+            var form = document.getElementById("formMission");
+            form.addEventListener('submit', function(ev) {
+                numDrones = form.elements["numDrones"].value;
+                granularity = form.elements["granularidad"].value;
+            }, false);
             
             //mapMarkers = []
             //lines = []
@@ -108,7 +116,7 @@
             var homes;
             var prevPos;
             //var prevPos = Array(20).fill([0,0,0]);
-
+            
 
             var sourceSetup = new EventSource('/topic/mapaDronesSetup');
             sourceSetup.addEventListener('message', function(e) {
@@ -172,9 +180,13 @@
                     //tiempoMax = obj.tiempoVueloMax;
                     bateriasTotal = obj.bateriasTotal;
                     bateriasMedia = obj.bateriasMedia;
+                    dronesFinished = obj.dronesFinished
+                    porcentaje = obj.porcentaje
                     
                     document.getElementById("tiempoEjecucion").innerHTML = "Tiempo total de vuelo: " + tiempoTotal.toFixed(2) + " | Tiempo medio de vuelo: " + tiempoMedio.toFixed(2); //+ " | Tiempo máximo de vuelo: " + tiempoMax;
                     document.getElementById("baterias").innerHTML = "Baterias totales usadas: " + bateriasTotal + " | Baterías usadas de media: " + bateriasMedia.toFixed(2);
+                    document.getElementById("dronesFinished").innerHTML = dronesFinished + " de " + numDrones + " drones han terminado.";
+                    document.getElementById("porcentaje").innerHTML = 100 * porcentaje.toFixed(4) + "% Completado de la misión";
                     
                 } else {
                     console.log("Tipo de datos no reconocido")

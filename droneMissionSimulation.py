@@ -158,6 +158,18 @@ class droneMissionSimualtion():
             
             return True
 
+        def dronesFinished():
+            return len(list(filter(lambda x:x.finished, drones)))
+
+        def dronesPorcentaje():
+            recorrido = 0
+            total = 0
+            for d in drones:
+                total += len(d.vehicle.commands)
+                recorrido += d.vehicle.commands.next
+
+            return recorrido/total
+
         def communicateDrones():
             time.sleep(30)
             finishComunicate = False
@@ -295,6 +307,8 @@ class droneMissionSimualtion():
                 #dataEndMission['tiempoVueloMax'] = tiempoVueloMax
                 dataEndMission['bateriasTotal'] = bateriasNecesarias
                 dataEndMission['bateriasMedia'] = bateriasNecesarias/len(drones)
+                dataEndMission['dronesFinished'] = dronesFinished()
+                dataEndMission['porcentaje'] = dronesPorcentaje()
 
 
                 setupMsg = func.json.dumps(dataEndMission)
