@@ -492,6 +492,7 @@ class ControladorDron:
 
             if((self.vehicle.commands.next == self.numberOfPoints) and get_distance_metres(self.vehicle.location.global_frame, self.lastPoint) < 5):
                 print("DRON ", self.id, " HA LLEGADO AL FINAL")
+                self.retHome = True
                 break;
 
             time.sleep(1)
@@ -521,6 +522,7 @@ class ControladorDron:
         print("Dron: ", self.id, " ha llegado a casa")
         self.vehicle.close()
         self.finishCommunication = True
+        self.finished = True
         #Cerrar la conexión
         
 

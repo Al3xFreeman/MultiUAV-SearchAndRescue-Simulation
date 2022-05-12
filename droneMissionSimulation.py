@@ -47,7 +47,7 @@ class droneMissionSimualtion():
         coords= dataFile["features"][0]["geometry"]
         #print("POLIGONO", coords)
         fileShapely: Polygon = shape(coords)
-
+        print("SHAPELY POL", fileShapely.exterior.coords)
 
         generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=fileShapely)
         (rutas, coordenadasPol) = generadorRutas.generaRuta()

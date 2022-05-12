@@ -41,9 +41,12 @@ class GeneraRutas:
 
         print("Leyendo archivo")
         self.coordenadas = readFile(self.file)
+        
+        #Temporal file to accept the new coordinates, will change to use shapely functions all the way
+        self.shapelyToCoords = shapToCoords(self._coords)
 
         print("Estrucutrando polígono")
-        self.poligono = estructuraPoligono(self.coordenadas)
+        self.poligono = estructuraPoligono(self.shapelyToCoords)
 
         #Comprueba si el polígono es válido
         #if not checkPoligono(poligono):
@@ -57,11 +60,11 @@ class GeneraRutas:
 
 
         if self.modo == Modos.Single:
-            return (self.genRutaSingle(), self.coordenadas)
+            return (self.genRutaSingle(), self.shapelyToCoords)
         elif self.modo == Modos.mTSP:
-            return (self.genRutaMTSP(), self.coordenadas)
+            return (self.genRutaMTSP(), self.shapelyToCoords)
         elif self.modo == Modos.Sectores:
-            return (self.genRutaSectores(), self.coordenadas)
+            return (self.genRutaSectores(), self.shapelyToCoords)
 
         #Ver cómo lanzar excepciones
         return []
@@ -80,7 +83,7 @@ class GeneraRutas:
         print("Genera ruta mTSP")
 
     def genRutaSectores(self):
-        print("Genera tura por sectores")
+        print("Genera ruta por sectores")
 
     def printRuta(self):
         coord_x = []
@@ -134,6 +137,14 @@ def readFile(file):
     #Mejorar esto y hacerlo en una sola linea
     for p in puntosStr:
         puntos.append([float(p[0]), float(p[1])])
+
+    return puntos
+
+def shapToCoords(shapelyPolygon: Polygon):
+    puntos = []
+    
+    for p in shapelyPolygon.exterior.coords:
+        puntos.append((p[1], p[0]))
 
     return puntos
 
