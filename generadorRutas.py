@@ -189,15 +189,15 @@ def generaMatriz(poligono, granularidad = 25):
         lat.append(elem.lat)
         lon.append(elem.lon)
     
-    lado_izq = min(lat)
-    lado_derecho = max(lat)
-    lado_arriba = max(lon)
-    lado_abajo = min(lon)
+    lado_abajo = min(lat)
+    lado_arriba = max(lat)
+    lado_derecho = max(lon)
+    lado_izq = min(lon)
 
-    esquina_izq_arr = LocationGlobal(lado_izq, lado_arriba)
-    esquina_izq_abajo = LocationGlobal(lado_izq, lado_abajo)
-    esquina_derecha_arr = LocationGlobal(lado_derecho, lado_arriba)
-    esquina_derecha_abajo = LocationGlobal(lado_derecho, lado_abajo)
+    esquina_izq_arr = LocationGlobal(lado_arriba, lado_izq)
+    esquina_izq_abajo = LocationGlobal(lado_abajo, lado_izq)
+    esquina_derecha_arr = LocationGlobal(lado_arriba, lado_derecho)
+    esquina_derecha_abajo = LocationGlobal(lado_abajo, lado_derecho)
 
     #De momento vamos a tratar la granularidad como 3 niveles:
     # Grande, normal y pequeña
