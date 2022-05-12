@@ -479,7 +479,8 @@ class ControladorDron:
             #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
             self.checkBattery(50, lvl)
-      
+            
+            #Checks to know if the drone has come back from recharging (helps to paint the trail in the web view)
             if(get_distance_metres(self.vehicle.location.global_frame, point) < 15):
                 pointIndex += 1
                 pointIndex %= len(self.locations)
@@ -537,7 +538,7 @@ class ControladorDron:
 
     def checkBattery(self, level, batlvl):
         if((batlvl + (self.bateriasUsadas * (100-level))) < level):
-            print("Batería restante baja... Volviendo a casa para cambio de batería")
+            print("Dron: " + str(self.id) + "--> Batería restante baja... Volviendo a casa para cambio de batería")
             #self.outputMode = "RTL"
 
             sem.acquire()
