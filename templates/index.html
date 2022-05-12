@@ -240,17 +240,18 @@
                 if(!obj.retHome) {
                     opc = 1
                     clr = colorGradient(obj.normalizedSpeed, lowColor, mediumColor, highColor)
-                } else {
-                    opc = 0.1
-                    clr = 'rgb(220,220,220)'
-                }
-                var polyline = new L.Polyline(pathCoords, {
+                    var polyline = new L.Polyline(pathCoords, {
                     color: clr,
                     weight: 5,
                     smoothFactor: 1,
                     opacity: opc
                 }).addTo(map);
                 lines.push(polyline);
+                } else {
+                    opc = 0.1
+                    clr = 'rgb(220,220,220)'
+                }
+                
                 
                 prevPos[obj.id] = [obj.latitude, obj.longitude, obj.altitude];
 
