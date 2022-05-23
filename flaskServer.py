@@ -7,6 +7,7 @@ from typing import List
 
 import threading
 import json
+import math
 
 import generadorRutas as genRut
 
@@ -103,12 +104,16 @@ def optimizeMission():
 
     
     t_List = []
-    
-    for i in range(numDrones):
-
-        print("SIM CON ", i + 1, " DRONES")
-        threadDron = threading.Thread(target=droneMission, args=(i+1,geoJSONfile, i+1, granularity, rutas, coordenadasPol, True))
+    drones = numDrones
+    missionId = 0
+    while drones > 1:
+    #for i in range(numDrones):
+        missionId += 1
+        print("SIM CON ", drones, " DRONES")
+        threadDron = threading.Thread(target=droneMission, args=(missionId, geoJSONfile, drones, granularity, rutas, coordenadasPol, True))
         t_List.append(threadDron)
+
+        drones = math.floor(drones/2)
         #Cada misión requiere de un id, comprobar que sea único
         #mission = sim.droneMissionSimualtion(id=i + 1, file=geoJSONfile, numDrones=i + 1, granularity=granularity, homeLat=40.453010, homeLon=-3.732698, sendKafka=False, rutas = rutas, coordenadasPol=coordenadasPol, rutaGenerada=True)
         #missionList.append(mission)
