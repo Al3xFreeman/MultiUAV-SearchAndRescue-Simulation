@@ -53,13 +53,14 @@ class IniciaSITL:
 sem = threading.Semaphore()
 
 class ControladorDron:
-    def __init__(self, connect, id, numPoints, lastPoint, wayPointLocations):
+    def __init__(self, connect, id, numPoints, lastPoint, wayPointLocations, sendkafka = False):
         #print("ID = ", id)
         
         #self.sem = threading.Semaphore()
 
         self.id = id
         self.connection_string = connect
+        self.sendKafkaDrone = sendkafka
 
         self.locations = wayPointLocations
         self.finished = False
@@ -99,9 +100,10 @@ class ControladorDron:
         # - Kafka producer para mandar la info del dron (JSON)
         threadsDron = []
 
-        threadKafka = threading.Thread(target=self.kafkaData)
-        threadsDron.append(threadKafka)
-        threadKafka.start()
+        if(self.sendKafkaDrone):
+            threadKafka = threading.Thread(target=self.kafkaData)
+            threadsDron.append(threadKafka)
+            threadKafka.start()
         
         #Despega e inicia la misión
         self.despega(20)

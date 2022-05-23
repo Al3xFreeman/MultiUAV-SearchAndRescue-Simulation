@@ -15,7 +15,7 @@ from shapely.geometry import shape
 from shapely.geometry.polygon import Polygon
 
 class droneMissionSimualtion():
-    def __init__(self, id, file, numDrones = 1, granularity = 40, output = False, alert = False, homeLat = 0, homeLon = 0):
+    def __init__(self, id, file, numDrones = 1, granularity = 40, output = False, alert = False, homeLat = 0, homeLon = 0, sendKafka = False, rutas = None, coordenadasPol = None, rutaGenerada = False):
         self._id = id
         self._file = file
         self._numDrones = numDrones
@@ -24,6 +24,10 @@ class droneMissionSimualtion():
         self._alert = alert
         self._homeLat = homeLat
         self._homeLon = homeLon
+        self._sendKafka = sendKafka
+        self._rutas = rutas
+        self._coordenadasPol = coordenadasPol
+        self._rutaGenerada = rutaGenerada
 
     def executeMission(self):
         print("Iniciando misión con ID: ", self._id)            
@@ -41,16 +45,17 @@ class droneMissionSimualtion():
         #print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
         posicionObjetivo = None
 
-        #TODO Check if geoJSON is valid
-        dataFile = json.load(self._file)
-        #print("QUE HAY AQUÍ ", dataFile)
-        coords= dataFile["features"][0]["geometry"]
-        #print("POLIGONO", coords)
-        fileShapely: Polygon = shape(coords)
-        print("SHAPELY POL", fileShapely.exterior.coords)
+        if(not self._rutaGenerada):
+            #TODO Check if geoJSON is valid
+            dataFile = json.load(self._file)
+            #print("QUE HAY AQUÍ ", dataFile)
+            coords= dataFile["features"][0]["geometry"]
+            #print("POLIGONO", coords)
+            fileShapely: Polygon = shape(coords)
+            print("SHAPELY POL", fileShapely.exterior.coords)
 
-        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=fileShapely)
-        (rutas, coordenadasPol) = generadorRutas.generaRuta()
+            generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, coordenadas=fileShapely, modo=modo)
+            (self._rutas, self._coordenadasPol) = generadorRutas.generaRuta()
 
         if modo == genRut.Modos.Single:
             #Esto sirve para cuando es una sola ruta (Modos.Single) y tenemos multiples drones
@@ -81,7 +86,7 @@ class droneMissionSimualtion():
 
                 return rutaSegmentadas
             
-            rutasMultDrones = divideRutaEntreDrones(self._numDrones, rutas[0])
+            rutasMultDrones = divideRutaEntreDrones(self._numDrones, self._rutas[0])
             for i, e in enumerate(rutasMultDrones):
                 print("ID: ", i, " | LEN: ", len(e))
 
@@ -95,7 +100,7 @@ class droneMissionSimualtion():
             sims.append(sim)
             #print("CON: ", sim.connection_string)
             
-            dron = func.ControladorDron(sim.connection_string, id, len(ruta), lastPoint=ruta[-1], wayPointLocations=ruta)
+            dron = func.ControladorDron(sim.connection_string, id, len(ruta), lastPoint=ruta[-1], wayPointLocations=ruta, sendkafka=self._sendKafka)
             drones.append(dron)
             #controladores.append(ControladorDron(sim.connection_string, id))
 
@@ -129,15 +134,17 @@ class droneMissionSimualtion():
         data['type'] = "setup"
         data['homeLat'] = self._homeLat
         data['homeLon'] = self._homeLon
-        data['pol'] = coordenadasPol
+        data['pol'] = self._coordenadasPol
         data['numDrones'] = self._numDrones
 
         setupMsg = func.json.dumps(data)
-        producerCoords.produce(setupMsg.encode('ascii'))
+
+        if(self._sendKafka):
+            producerCoords.produce(setupMsg.encode('ascii'))
 
 
         thread_list_start = []
-        camaraActivada = True
+        camaraActivada = False
 
         for i in range(self._numDrones):
             threadDron = threading.Thread(target=nuevoDron, args=(i,camaraActivada, rutasMultDrones[i]))
@@ -322,9 +329,10 @@ class droneMissionSimualtion():
                 time.sleep(0.033)
             print("END RESUMEN")
             produceMissionInfo()
-            
-        threadUpdate = threading.Thread(target=sendResumen)
-        thread_list_start.append(threadUpdate)
+        
+        if(self._sendKafka):
+            threadUpdate = threading.Thread(target=sendResumen)
+            thread_list_start.append(threadUpdate)
 
         print("Numero de threads: ",len(thread_list_start))
 
@@ -362,15 +370,20 @@ class droneMissionSimualtion():
             dataEndMission['tiempoVueloMax'] = tiempoVueloMax
             dataEndMission['bateriasTotal'] = bateriasNecesarias
             dataEndMission['bateriasMedia'] = bateriasNecesarias/self._numDrones
+            dataEndMission['numDrones'] = self._numDrones
 
 
             setupMsg = func.json.dumps(dataEndMission)
-            producerCoords.produce(setupMsg.encode('ascii'))
+            if(self._sendKafka):
+                producerCoords.produce(setupMsg.encode('ascii'))
             
+            return dataEndMission
 
-        calcResumen()
+        data = calcResumen()
 
         print("Missión terminada")
 
-
         producerCoords.stop()
+
+
+        return data

@@ -22,7 +22,7 @@ class Modos(Enum):
 
 
 class GeneraRutas:
-    def __init__(self, file, granularity, modo, coordenadas: Polygon):
+    def __init__(self, file, granularity, coordenadas: Polygon, modo = Modos.Single, ):
         #Genera la ruta para recorrer el área.
         #Posteriormente el dron se dirigirá hasta el punto de inicio y empezará a recorrerla
         #Cuando necesite recargar baterías, volverá a su "home".

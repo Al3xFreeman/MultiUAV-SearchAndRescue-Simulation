@@ -58,6 +58,40 @@
           </div>
         </form>
 
+        <form action="/optimizeMission" method="POST" id="formMission" target="dummyframe" enctype="multipart/form-data">
+    
+            <div class="form__fieldset">
+              <label for="número máximo de drones a simular" class="form__label">Número de drones:</label>
+              <input type="number" name="numDrones" id="numDrones" class="form__input" />
+            </div>
+            <div class="form__fieldset">
+              <label for="granularidad" class="form__label">Granularidad:</label>
+              <input type="number" name="granularidad" id="granularidad" class="form__input" />
+            </div>
+            <div class="form__fieldset">
+                <label for="archivo con el polígono" class="form__label">Archivo a subir:</label>
+                <input type="file" name="fileGeoJSON" required />
+            </div>
+      <!--
+            <div class="form__fieldset">
+              <label for="account" class="form__label">Account:</label>
+              <select name="account" id="account" class="form__input form__select">
+                <option value="Checking">Checking</option>
+                <option value="Savings">Savings</option>
+                <option value="Investment">Investment</option>
+              </select>
+            </div>
+      -->
+            <div class="form__fieldset">
+              <input
+                id="inputMission"
+                class="form__submit form__input"
+                type="submit"
+                value="Inicia multiples simulaciones"
+              />
+            </div>
+          </form>
+
         <script>
             /*
             document.getElementById('inputMission').addEventListener("click", () => {
