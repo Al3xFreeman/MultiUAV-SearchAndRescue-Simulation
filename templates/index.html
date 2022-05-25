@@ -175,8 +175,8 @@
                     bateriasTotal = obj.bateriasTotal;
                     bateriasMedia = obj.bateriasMedia;
                     
-                    document.getElementById("tiempoEjecucion").innerHTML = "Tiempo total de vuelo: " + tiempoTotal.toFixed(2) + " | Tiempo medio de vuelo: " + tiempoMedio.toFixed(2) + " | Tiempo máximo de vuelo: " + tiempoMax.toFixed(2);
-                    document.getElementById("baterias").innerHTML = "Baterias totales usadas: " + bateriasTotal + " | Baterías usadas de media: " + bateriasMedia.toFixed(2);
+                    document.getElementById("tiempoEjecucion").innerHTML = "Total flight time: " + tiempoTotal.toFixed(2) + " | Average flight time: " + tiempoMedio.toFixed(2) + " | Max. flight time: " + tiempoMax.toFixed(2);
+                    document.getElementById("baterias").innerHTML = "Total batteries used: " + bateriasTotal + " | Average batteries used: " + bateriasMedia.toFixed(2);
                     
 
                 } else if(obj.type == "update") {
@@ -188,10 +188,10 @@
                     dronesFinished = obj.dronesFinished
                     porcentaje = obj.porcentaje
                     
-                    document.getElementById("tiempoEjecucion").innerHTML = "Tiempo total de vuelo: " + tiempoTotal.toFixed(2) + " | Tiempo medio de vuelo: " + tiempoMedio.toFixed(2); //+ " | Tiempo máximo de vuelo: " + tiempoMax;
-                    document.getElementById("baterias").innerHTML = "Baterias totales usadas: " + bateriasTotal + " | Baterías usadas de media: " + bateriasMedia.toFixed(2);
-                    document.getElementById("dronesFinished").innerHTML = dronesFinished + " de " + numDrones + " drones han terminado.";
-                    document.getElementById("porcentaje").innerHTML = 100 * porcentaje.toFixed(4) + "% Completado de la misión";
+                    document.getElementById("tiempoEjecucion").innerHTML = "Total flight time: " + tiempoTotal.toFixed(2) + " | Average flight time: " + tiempoMedio.toFixed(2); //+ " | Tiempo máximo de vuelo: " + tiempoMax;
+                    document.getElementById("baterias").innerHTML = "Total batteries used: " + bateriasTotal + " | Average batteries used: " + bateriasMedia.toFixed(2);
+                    document.getElementById("dronesFinished").innerHTML = dronesFinished + " of " + numDrones + " drones finished.";
+                    document.getElementById("porcentaje").innerHTML = 100 * porcentaje.toFixed(4) + "% Completed";
                     
                 } else {
                     console.log("Tipo de datos no reconocido")
