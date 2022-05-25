@@ -8,34 +8,36 @@
         <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
             integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
             crossorigin=""></script>
-        <title>Boby</title>
+        <title>UAV Simulation</title>
     </head>
     <body>
-        <h1>Mapa de la misión</h1>
+        <h1>Mission Map</h1>
         <div id="map" style="width:900px; height:500px"></div>
 
-        <div> <h2> Resultados de la simulación: </h2> </div>
+        <div> <h2> Simulation results: </h2> </div>
         <div id = "tiempoEjecucion"></div>
         <div id = "baterias"></div>
         <div id = "dronesFinished"></div>
         <div id = "porcentaje"></div>
+        <!--
         <div id = "cameraFeed">
             <img src="http://localhost:5000/1/0/camera">
         </div>
-        <h1>Nueva Misión</h1>
+        -->
+        <h1>New Mission</h1>
         <iframe name="dummyframe" id="dummyframe" style="display: none;"></iframe>
         <form action="/sendMission" method="POST" id="formMission" target="dummyframe" enctype="multipart/form-data">
     
           <div class="form__fieldset">
-            <label for="número de drones" class="form__label">Número de drones:</label>
+            <label for="Number of drones" class="form__label">Number of drones:</label>
             <input type="number" name="numDrones" id="numDrones" class="form__input" />
           </div>
           <div class="form__fieldset">
-            <label for="granularidad" class="form__label">Granularidad:</label>
+            <label for="granularity" class="form__label">Granularity:</label>
             <input type="number" name="granularidad" id="granularidad" class="form__input" />
           </div>
           <div class="form__fieldset">
-              <label for="archivo con el polígono" class="form__label">Archivo a subir:</label>
+              <label for="polygon file" class="form__label">Polygon file:</label>
               <input type="file" name="fileGeoJSON" required />
           </div>
     <!--
@@ -53,7 +55,7 @@
               id="inputMission"
               class="form__submit form__input"
               type="submit"
-              value="Inicia misión"
+              value="Start Mission"
             />
           </div>
         </form>
@@ -151,6 +153,9 @@
 
                     var homeLat = obj.homeLat;
                     var homeLon = obj.homeLon;
+
+                    map.panTo(new L.LatLng(homeLat, homeLon), 16);
+
                     //var homeAlt = obj.homeAlt;
                     prevPos = Array(obj.numDrones).fill([homeLat,homeLon]);
                     var poligon = [obj.pol];
