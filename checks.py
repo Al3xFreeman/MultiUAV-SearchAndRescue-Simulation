@@ -29,6 +29,7 @@ def arming(vehicle :dk.Vehicle, verbose=False):
     
 
 def esperaAltura(id, vehicle:dk.Vehicle, altura, verbose=False):
+    startTime = time.time()
     while True:
         if verbose:
             print("ID: ", id, " ||| Altitude: ", vehicle.location.global_relative_frame.alt)
@@ -36,5 +37,9 @@ def esperaAltura(id, vehicle:dk.Vehicle, altura, verbose=False):
         if vehicle.location.global_relative_frame.alt >= altura * 0.95:
             print("Reached target altitude")
             break
-        time.sleep(1)
+        if(((time.time() - startTime) > 30) and vehicle.location.global_relative_frame.alt < 5):
+            return False
 
+        time.sleep(1)
+        
+    return True

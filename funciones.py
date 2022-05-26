@@ -71,6 +71,8 @@ class ControladorDron:
         self.lastPoint = lastPoint
         self.wayPointLocations = wayPointLocations
         self.retHome = True
+        self.checkTime = False
+        self.maxWP = 0
 
         self.tiempoDeVuelo = 0
         self.initExecution = datetime.datetime.now()
@@ -279,7 +281,7 @@ class ControladorDron:
 
         #Espera a que llegue a la altura especificada
         #Si se mandara otra acci´pn antes de ello, se cancelaría la acción de despegar
-        checks.esperaAltura(self.id, self.vehicle, altura, verbose=False)
+        return checks.esperaAltura(self.id, self.vehicle, altura, verbose=False)
 
     #https://dronekit-python.readthedocs.io/en/latest/guide/copter/guided_mode.html
     def mueve(self, **kwargs):
@@ -478,10 +480,18 @@ class ControladorDron:
 
             #print("Batería: ", lvl  + (self.bateriasCambiadas * 45), "||||| Batería Real del sim: ", self.vehicle.battery.level)
             
+            #In case the next information gets lost
+            if(self.vehicle.commands.next > self.maxWP):
+                self.maxWP = self.vehicle.commands.next
+            if(self.vehicle.commands.next < self.maxWP - 1):
+                self.vehicle.commands.next = self.maxWP - 1
+
             self.checkBattery(50, lvl)
-            
+            #if(self.checkTime and self.retHome and (time.time() - self.timeReturnWP) > self.timeHome):
+            #    self.retHome = False
+            #    self.checkTime = False
             #Checks to know if the drone has come back from recharging (helps to paint the trail in the web view)
-            if(get_distance_metres(self.vehicle.location.global_frame, point) < 15):
+            if(get_distance_metres(self.vehicle.location.global_frame, point) < 15 or (self.checkTime and ((time.time() - self.timeReturnWP) > self.timeHome))):
                 pointIndex += 1
                 pointIndex %= len(self.locations)
                 point = self.locations[pointIndex]
@@ -548,7 +558,7 @@ class ControladorDron:
             sem.release()
             self.retHome = True
             sem.acquire()
-
+            self.timeHome = time.time()
             if not self.vehicle.home_location:
                 print("Estableciendo casa")
                 self.download_mission()
@@ -561,8 +571,8 @@ class ControladorDron:
                 #print("HA LLEGADO? A CASA: ", get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) < 5)
                 #print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
                 time.sleep(1)
-            
-            print("El vehículo: ", self.id, " ha llegado a casa")
+            self.timeHome = time.time() - self.timeHome
+            print("El vehículo: ", self.id, " ha llegado a casa, ha tardado", self.timeHome, "segundos")
 
             sem.acquire()
             siguiente = self.vehicle.commands.next
@@ -615,15 +625,25 @@ class ControladorDron:
             sem.release()
 
             #Vuelve a despegar
-            self.despega(20)
+            ret = self.despega(20)
+            timesDespega = 1
+            while (not ret):
+                print("Dron: ", self.id, "DESPEGA HA FALLADO, RECONECTANDO. Num veces: ", timesDespega)
+                self.vehicle.close()
+                time.sleep(5)
+                self.vehicle = dk.connect(self.connection_string, wait_ready=True)
+                ret = self.despega(20)
+                timesDespega += 1
+
             #Continúa con la misión
             #self.outputMode = "Normal"
 
             sem.acquire()
             self.vehicle.mode = dk.VehicleMode("AUTO")
             sem.release()
-
-            print("Último punto visitado: ", self.vehicle.commands.next)
+            self.timeReturnWP = time.time()
+            self.checkTime = True
+            print("Dron: ",self.id, " Último punto visitado: ", self.vehicle.commands.next)
 
     
     
