@@ -61,6 +61,9 @@ class ControladorDron:
         self.id = id
         self.connection_string = connect
 
+        self.rechargeTime = 420 #7 minutes of autonomy
+        self.lastRecharge = 0
+
         self.locations = wayPointLocations
         self.finished = False
         self.finishCommunication = False
@@ -454,12 +457,14 @@ class ControladorDron:
         distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
         return distancetopoint
 
-    def executeMission(self):
-
+    def executeMission(self, rechargePolicy = "Time"):
+        
         print("Starting mission")
+        print("Recharge policy: ", rechargePolicy, "||| Time to recharge: ", self.rechargeTime)
+        
         # Reset mission set to first (0) waypoint
         self.vehicle.commands.next=0
-
+        self.lastRecharge = time.time()
         # Set mode to AUTO to start mission
         self.outputMode = "Normal"
 
@@ -486,7 +491,11 @@ class ControladorDron:
             if(self.vehicle.commands.next < self.maxWP):
                 self.vehicle.commands.next = self.maxWP
 
-            self.checkBattery(50, lvl)
+            if(rechargePolicy == "Time"):
+                self.checkTimeRecharge()
+            else:
+                self.checkBattery(50, lvl)
+
             #if(self.checkTime and self.retHome and (time.time() - self.timeReturnWP) > self.timeHome):
             #    self.retHome = False
             #    self.checkTime = False
@@ -535,7 +544,118 @@ class ControladorDron:
         self.finishCommunication = True
         self.finished = True
         #Cerrar la conexión
+    
+    def checkTimeRecharge(self):
+        if(time.time() - self.lastRecharge > self.rechargeTime): #Recharge time threshold reached, tiem to recharge
+            print("Dron: " + str(self.id) + "Time to recharge.")
+            self.rechargingProcedure()
+            self.lastRecharge = time.time()
+
+    
+    def checkBattery(self, level, batlvl):
+        if((batlvl + (self.bateriasUsadas * (100-level))) < level):
+            self.rechargingProcedure()
+
+    
+    def rechargingProcedure(self):
+        print("Dron: " + str(self.id) + "--> Batería restante baja... Volviendo a casa para cambio de batería")
+        #self.outputMode = "RTL"
+
+        sem.acquire()
+
+        self.vehicle.mode = dk.VehicleMode("RTL")
+        #print("PERO TU TIENES CASA: ", self.vehicle._home_location)
+        sem.release()
+        self.retHome = True
+        sem.acquire()
+        self.timeHome = time.time()
+        if not self.vehicle.home_location:
+            print("Estableciendo casa")
+            self.download_mission()
+            #self.vehicle.home_location = self.home
+            self.home = self.vehicle.home_location
+
+        sem.release()
+
+        while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
+            #print("HA LLEGADO? A CASA: ", get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) < 5)
+            #print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
+            time.sleep(1)
+        self.timeHome = time.time() - self.timeHome
+        print("El vehículo: ", self.id, " ha llegado a casa, ha tardado", self.timeHome, "segundos")
+
+        sem.acquire()
+        siguiente = self.vehicle.commands.next
+        sem.release()
+
+        #print("CONNECTION STRING: ", self.connection_string )
+
+        #Se desconecta para simular el cambio de batería
+        #print("ALTURA???", self.vehicle.location.global_frame.alt)
+
+        #TODO Comprobar este while
+        while (self.vehicle.location.global_frame.alt > 0.01) and (self.vehicle.location.global_frame.alt > (self.vehicle.home_location.alt + 0.1)):
+            #print("ALTURA???", self.vehicle.location.global_frame.alt)
+            time.sleep(1)
+        #self.outputMode = "Normal"
+
+        sem.acquire()
+        self.vehicle.mode = dk.VehicleMode("GUIDED")
+        self.vehicle.close()
+        sem.release()
+
+        print("Recargando batería del vehículo: ", self.id)
+        time.sleep(5)
         
+        self.bateriasUsadas += 1
+        #Se vuelve a conectar cuando tiene la nueva batería
+        print("VECES QUE HA IDO A RECARGAR: ", self.bateriasUsadas)
+        print('Connecting to vehicle', self.id,' on: %s' % self.connection_string)
+        self.vehicle = dk.connect(self.connection_string, wait_ready=True)
+        #self.outputMode = "Normal"
+
+        sem.acquire()
+        self.vehicle.mode = dk.VehicleMode("GUIDED")
+        sem.release()
+
+        sem.acquire()
+        if not self.vehicle.home_location:
+            print("Estableciendo casa")
+            self.download_mission()
+            #self.vehicle.home_location = self.home
+            self.home = self.vehicle.home_location
+        
+        sem.release()
+
+        sem.acquire()
+        self.createMission(self.locations)
+
+        self.vehicle.commands.next = siguiente
+        #espera artificial para asegurar que los comandos se suban
+        sem.release()
+
+        #Vuelve a despegar
+        ret = self.despega(20)
+        timesDespega = 1
+        while (not ret):
+            print("Dron: ", self.id, "DESPEGA HA FALLADO, RECONECTANDO. Num veces: ", timesDespega)
+            self.vehicle.close()
+            time.sleep(5)
+            self.vehicle = dk.connect(self.connection_string, wait_ready=True)
+            ret = self.despega(20)
+            timesDespega += 1
+
+        #Continúa con la misión
+        #self.outputMode = "Normal"
+
+        sem.acquire()
+        self.vehicle.mode = dk.VehicleMode("AUTO")
+        sem.release()
+        self.timeReturnWP = time.time()
+        self.checkTime = True
+        print("Dron: ",self.id, " Último punto visitado: ", self.vehicle.commands.next)
+
+
 
     def calculateRealBattery(self):
         if self.vehicle.battery.level == None:
@@ -546,107 +666,8 @@ class ControladorDron:
         return (simLvl + (self.bateriasUsadas * 100))
         
 
-    def checkBattery(self, level, batlvl):
-        if((batlvl + (self.bateriasUsadas * (100-level))) < level):
-            print("Dron: " + str(self.id) + "--> Batería restante baja... Volviendo a casa para cambio de batería")
-            #self.outputMode = "RTL"
 
-            sem.acquire()
 
-            self.vehicle.mode = dk.VehicleMode("RTL")
-            #print("PERO TU TIENES CASA: ", self.vehicle._home_location)
-            sem.release()
-            self.retHome = True
-            sem.acquire()
-            self.timeHome = time.time()
-            if not self.vehicle.home_location:
-                print("Estableciendo casa")
-                self.download_mission()
-                #self.vehicle.home_location = self.home
-                self.home = self.vehicle.home_location
-
-            sem.release()
-
-            while(get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) > 10):
-                #print("HA LLEGADO? A CASA: ", get_distance_metres(self.vehicle.location.global_frame, self.vehicle.home_location) < 5)
-                #print("Not home yet ||||| Distancia: ", get_distance_metres(self.vehicle.home_location, self.vehicle.location.global_frame))
-                time.sleep(1)
-            self.timeHome = time.time() - self.timeHome
-            print("El vehículo: ", self.id, " ha llegado a casa, ha tardado", self.timeHome, "segundos")
-
-            sem.acquire()
-            siguiente = self.vehicle.commands.next
-            sem.release()
-
-            #print("CONNECTION STRING: ", self.connection_string )
-
-            #Se desconecta para simular el cambio de batería
-            #print("ALTURA???", self.vehicle.location.global_frame.alt)
-
-            #TODO Comprobar este while
-            while (self.vehicle.location.global_frame.alt > 0.01) and (self.vehicle.location.global_frame.alt > (self.vehicle.home_location.alt + 0.1)):
-                #print("ALTURA???", self.vehicle.location.global_frame.alt)
-                time.sleep(1)
-            #self.outputMode = "Normal"
-
-            sem.acquire()
-            self.vehicle.mode = dk.VehicleMode("GUIDED")
-            self.vehicle.close()
-            sem.release()
-
-            print("Recargando batería del vehículo: ", self.id)
-            time.sleep(5)
-            
-            self.bateriasUsadas += 1
-            #Se vuelve a conectar cuando tiene la nueva batería
-            print("VECES QUE HA IDO A RECARGAR: ", self.bateriasUsadas)
-            print('Connecting to vehicle', self.id,' on: %s' % self.connection_string)
-            self.vehicle = dk.connect(self.connection_string, wait_ready=True)
-            #self.outputMode = "Normal"
-
-            sem.acquire()
-            self.vehicle.mode = dk.VehicleMode("GUIDED")
-            sem.release()
-
-            sem.acquire()
-            if not self.vehicle.home_location:
-                print("Estableciendo casa")
-                self.download_mission()
-                #self.vehicle.home_location = self.home
-                self.home = self.vehicle.home_location
-           
-            sem.release()
-
-            sem.acquire()
-            self.createMission(self.locations)
-
-            self.vehicle.commands.next = siguiente
-            #espera artificial para asegurar que los comandos se suban
-            sem.release()
-
-            #Vuelve a despegar
-            ret = self.despega(20)
-            timesDespega = 1
-            while (not ret):
-                print("Dron: ", self.id, "DESPEGA HA FALLADO, RECONECTANDO. Num veces: ", timesDespega)
-                self.vehicle.close()
-                time.sleep(5)
-                self.vehicle = dk.connect(self.connection_string, wait_ready=True)
-                ret = self.despega(20)
-                timesDespega += 1
-
-            #Continúa con la misión
-            #self.outputMode = "Normal"
-
-            sem.acquire()
-            self.vehicle.mode = dk.VehicleMode("AUTO")
-            sem.release()
-            self.timeReturnWP = time.time()
-            self.checkTime = True
-            print("Dron: ",self.id, " Último punto visitado: ", self.vehicle.commands.next)
-
-    
-    
 #Ángulo entre dos puntos y lat y lon dando un punto, la dist y el angulo
 #https://www.igismap.com/formula-to-find-bearing-or-heading-angle-between-two-points-latitude-longitude/
 def get_angle_from_point(point1, point2):
