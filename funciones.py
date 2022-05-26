@@ -181,7 +181,7 @@ class ControladorDron:
             data['altitude'] = self.vehicle.location.global_frame.alt
             data['status'] = self.vehicle.mode.name
             data['battery'] = self.calculateRealBattery()
-            data['checkpoint'] = self.vehicle.commands.next
+            data['checkpoint'] = self.maxWP
             data['retHome'] = self.retHome
             #print("MAX: ", self.vehicle.airspeed)
             speed = (get_distance_metres(self.vehicle.location.global_frame, prevPos)/dataInterval)
