@@ -60,7 +60,8 @@ def startMission():
     time.sleep(5)
     print("Ta luego")
     #Cada misión requiere de un id, comprobar que sea único
-    mission = sim.droneMissionSimualtion(id=1, file=geoJSONfile, numDrones=numDrones, granularity=granularity, homeLat=40.453010, homeLon=-3.732698)
+    #mission = sim.droneMissionSimualtion(id=1, file=geoJSONfile, numDrones=numDrones, granularity=granularity, homeLat=40.453010, homeLon=-3.732698)
+    mission = sim.droneMissionSimualtion(id=1, file=geoJSONfile, numDrones=numDrones, granularity=granularity)
     missionList.append(mission)
     mission.executeMission()
     #return render_template('index.html')

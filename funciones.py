@@ -483,8 +483,8 @@ class ControladorDron:
             #In case the next information gets lost
             if(self.vehicle.commands.next > self.maxWP):
                 self.maxWP = self.vehicle.commands.next
-            if(self.vehicle.commands.next < self.maxWP - 1):
-                self.vehicle.commands.next = self.maxWP - 1
+            if(self.vehicle.commands.next < self.maxWP):
+                self.vehicle.commands.next = self.maxWP
 
             self.checkBattery(50, lvl)
             #if(self.checkTime and self.retHome and (time.time() - self.timeReturnWP) > self.timeHome):
@@ -620,7 +620,7 @@ class ControladorDron:
             sem.acquire()
             self.createMission(self.locations)
 
-            self.vehicle.commands.next = siguiente - 1
+            self.vehicle.commands.next = siguiente
             #espera artificial para asegurar que los comandos se suban
             sem.release()
 

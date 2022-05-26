@@ -12,18 +12,46 @@ import funciones as func
 import generadorRutas as genRut
 #from generadorRutas import *
 from shapely.geometry import shape
-from shapely.geometry.polygon import Polygon
+from shapely.geometry.polygon import Polygon, Point
 
 class droneMissionSimualtion():
-    def __init__(self, id, file, numDrones = 1, granularity = 40, output = False, alert = False, homeLat = 0, homeLon = 0):
+    def __init__(self, id, file, numDrones = 1, granularity = 40, output = False, alert = False):
         self._id = id
         self._file = file
         self._numDrones = numDrones
         self._granularity = granularity
         self._output = output
         self._alert = alert
-        self._homeLat = homeLat
-        self._homeLon = homeLon
+        #self._homeLat = homeLat
+        #self._homeLon = homeLon
+
+        #extract the needed information from the GeoJSON file
+        self.polygons : List[Polygon] = []
+        self.homes : List[Point] = []
+
+        #TODO Check if geoJSON is valid
+        dataFile = json.load(self._file)
+        #print("QUE HAY AQUÍ ", dataFile)
+
+        for elem in dataFile["features"]:
+            if(elem["geometry"]["type"] == "Polygon"): #it is a polygon
+                fileShapely: Polygon = shape(elem["geometry"])
+                self.polygons.append(fileShapely)
+                print("SHAPELY POL", fileShapely.exterior.coords)                
+            elif(elem["geometry"]["type"] == "Point"): #it is a point -> home for UAVs The init point will be the first home
+                pointShapely : Point = shape(elem["geometry"])
+                self.homes.append(pointShapely)
+                print("SHAPELY HOME ", pointShapely)
+
+        if len(self.homes) == 0: #If no home was chosen, it will be the centroid of the polygon
+            self.home = self.polygons[0].centroid
+            print("HOME IS THE CENTROID")
+            self._homeLat = self.home.coords[0][1]
+            self._homeLon = self.home.coords[0][0]
+        else:
+            print("HOME INDICATED IN GEOJSON")
+            self._homeLat = self.homes[0].coords[0][1]
+            self._homeLon = self.homes[0].coords[0][0]
 
     def executeMission(self):
         print("Iniciando misión con ID: ", self._id)            
@@ -41,15 +69,32 @@ class droneMissionSimualtion():
         #print("VALOR DE OBJETIVO DETECTADO: ", objetivoDetectado)
         posicionObjetivo = None
 
-        #TODO Check if geoJSON is valid
-        dataFile = json.load(self._file)
-        #print("QUE HAY AQUÍ ", dataFile)
-        coords= dataFile["features"][0]["geometry"]
-        #print("POLIGONO", coords)
-        fileShapely: Polygon = shape(coords)
-        print("SHAPELY POL", fileShapely.exterior.coords)
+        #extract the needed information from the GeoJSON file
+        #polygons = []
+        #homes = []
 
-        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=fileShapely)
+        #TODO Check if geoJSON is valid
+        #dataFile = json.load(self._file)
+        #print("QUE HAY AQUÍ ", dataFile)
+        """
+        for elem in dataFile["features"]:
+            if(elem["geometry"]["type"] == "Polygon"): #it is a polygon
+                fileShapely: Polygon = shape(elem["geometry"])
+                polygons.append[fileShapely]
+                print("SHAPELY POL", fileShapely.exterior.coords)                
+            elif(elem["geometry"]["type"] == "Point"): #it is a point -> home for UAVs
+                pointShapely : Point = shape(elem["geometry"])
+                homes.append[pointShapely]
+                print("SHAPELY HOME ", pointShapely)
+        """
+        #coords= dataFile["features"][0]["geometry"]
+        #print("POLIGONO", coords)
+        #fileShapely: Polygon = shape(coords)
+        #print("SHAPELY POL", fileShapely.exterior.coords)
+
+        #For the time being just take the first inputed polygon, but the array will be used in the future to treat multiple polygons
+        #Use the feature of shapely of colection of polygons, points, etc...
+        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=self.polygons[0])
         (rutas, coordenadasPol) = generadorRutas.generaRuta()
 
         if modo == genRut.Modos.Single:
