@@ -244,11 +244,26 @@
                     map.removeLayer(mapMarkers[parseInt(obj.id)]);
                 }
                 if(obj.battery >= 75) {
-                    newMarker = L.marker([obj.latitude, obj.longitude], {icon: greenIcon}).addTo(map);
+                    newMarker = L.marker([obj.latitude, obj.longitude], {icon: greenIcon}).addTo(map).bindTooltip('' + obj.id , 
+    {
+        permanent: true, 
+        direction: 'right'
+    }
+);
                 } else if (obj.battery >= 50 && obj.battery < 75) {
-                    newMarker = L.marker([obj.latitude, obj.longitude], {icon: goldIcon}).addTo(map);
+                    newMarker = L.marker([obj.latitude, obj.longitude], {icon: goldIcon}).addTo(map).bindTooltip('' + obj.id, 
+    {
+        permanent: true, 
+        direction: 'right'
+    }
+);
                 } else {
-                    newMarker = L.marker([obj.latitude, obj.longitude], {icon: redIcon}).addTo(map);
+                    newMarker = L.marker([obj.latitude, obj.longitude], {icon: redIcon}).addTo(map).bindTooltip('' + obj.id, 
+    {
+        permanent: true, 
+        direction: 'right'
+    }
+);
                 }
                 mapMarkers[parseInt(obj.id)] = newMarker;
                 
