@@ -1,0 +1,12 @@
+dronekit==2.9.2
+dronekit_sitl==3.3.0
+Flask==2.1.1
+imutils==0.5.4
+matplotlib==3.5.1
+numpy==1.21.4
+opencv_python==4.5.5.64
+pykafka==2.8.0
+pymavlink==2.4.8
+pyproj==3.3.0
+python_tsp==0.2.1
+Shapely==1.8.0
