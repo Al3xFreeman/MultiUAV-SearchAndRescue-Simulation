@@ -47,8 +47,23 @@ def startMission():
     numDrones = int(request.form['numDrones'])
     print("Number of drones: ", numDrones)
 
-    granularity = int(request.form['granularidad'])
-    print("Granularity: ", granularity)
+
+    #Check if granularity as been inputed
+    if(request.form['granularidad'] != ""):
+        granularity = int(request.form['granularidad'])
+        print("Granularity: ", granularity)
+    else:
+        granularity = None
+        print("No hay granularidad")
+
+    print(request.form)
+    #Check for automating the granularity
+    if("checkGranularity" in request.form):
+        checkGranularity = True
+    else:
+        checkGranularity = False
+    print("CHECK GRANULARITY: ", checkGranularity)
+    
     print(request.files)
     if 'fileGeoJSON' not in request.files:
         return ('No está el archivo con el polígono', 401)
@@ -56,12 +71,9 @@ def startMission():
     geoJSONfile = request.files['fileGeoJSON']
     print("ARCHIVO", geoJSONfile.filename)
 
-    print("Esperando")
-    time.sleep(5)
-    print("Ta luego")
     #Cada misión requiere de un id, comprobar que sea único
     #mission = sim.droneMissionSimualtion(id=1, file=geoJSONfile, numDrones=numDrones, granularity=granularity, homeLat=40.453010, homeLon=-3.732698)
-    mission = sim.droneMissionSimualtion(id=1, file=geoJSONfile, numDrones=numDrones, granularity=granularity)
+    mission = sim.droneMissionSimualtion(id=1, file=geoJSONfile, numDrones=numDrones, granularity=granularity, automateGranularity=checkGranularity)
     missionList.append(mission)
     mission.executeMission()
     #return render_template('index.html')

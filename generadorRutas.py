@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import funciones as func
 
 from typing import List
-from enum import Enum
+from enum import Enum, auto
 
 from python_tsp.distances import great_circle_distance_matrix
 from python_tsp.heuristics import solve_tsp_local_search
@@ -22,14 +22,23 @@ class Modos(Enum):
 
 
 class GeneraRutas:
-    def __init__(self, file, granularity, modo, coordenadas: Polygon):
+    def __init__(self, file, granularity, modo, coordenadas: Polygon, automateGranularity=False):
         #Genera la ruta para recorrer el área.
         #Posteriormente el dron se dirigirá hasta el punto de inicio y empezará a recorrerla
         #Cuando necesite recargar baterías, volverá a su "home".
         #Y cuando termine de recorrer la zona, también volverá a "home"
 
+        #max number of points to perform TSP (if automateGranularity is True)
+        #self.minPoints = 200
+        self.maxPoints = 300
+        self.automateGranularity = automateGranularity
+        if(automateGranularity):
+            self.granularity = 50
+        else:
+            self.granularity = granularity
+
         self.file = file
-        self.granularity = granularity
+        
         self.modo : Modos = modo
         self._coords = coordenadas
         #TODO USe Shapely methods to improve routes generation
@@ -52,11 +61,30 @@ class GeneraRutas:
         #if not checkPoligono(poligono):
         #     return "ERROR"
         
-        print("Generando matriz")
-        self.matriz = generaMatriz(self.poligono, self.granularity)
+        
+        if(self.automateGranularity):
+            print("Generando matriz con granularidad: ", self.granularity)
+            self.matriz = generaMatriz(self.poligono, self.granularity)
 
-        print("Calculando puntos dentro")
-        self.puntosDentro = generaPuntos(self.poligono, self.matriz)
+            print("Calculando puntos dentro")
+            self.puntosDentro = generaPuntos(self.poligono, self.matriz)
+            
+            while(len(self.puntosDentro) >= self.maxPoints):
+                print("Número de puntos ha superado el límite")
+                self.granularity *= 1.5
+                print("Nueva granularidad: ", self.granularity)
+                print("Generando matriz con granularidad: ", self.granularity)
+                self.matriz = generaMatriz(self.poligono, self.granularity)
+
+                print("Calculando puntos dentro")
+                self.puntosDentro = generaPuntos(self.poligono, self.matriz)
+
+        else:
+            print("Generando matriz con granularidad: ", self.granularity)
+            self.matriz = generaMatriz(self.poligono, self.granularity)
+
+            print("Calculando puntos dentro")
+            self.puntosDentro = generaPuntos(self.poligono, self.matriz)
 
 
         if self.modo == Modos.Single:
@@ -220,7 +248,6 @@ def generaMatriz(poligono, granularidad = 25):
             y += granularidad
         x += granularidad
 
-   
     print("Total puntos: ", len(puntos))
         
     return puntos

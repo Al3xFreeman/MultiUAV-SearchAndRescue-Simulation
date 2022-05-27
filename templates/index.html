@@ -34,36 +34,41 @@
         <iframe name="dummyframe" id="dummyframe" style="display: none;"></iframe>
         <form action="/sendMission" method="POST" id="formMission" target="dummyframe" enctype="multipart/form-data">
     
-          <div class="form__fieldset">
-            <label for="Number of drones" class="form__label">Number of drones:</label>
-            <input type="number" name="numDrones" id="numDrones" class="form__input" />
-          </div>
-          <div class="form__fieldset">
-            <label for="granularity" class="form__label">Granularity:</label>
-            <input type="number" name="granularidad" id="granularidad" class="form__input" />
-          </div>
-          <div class="form__fieldset">
-              <label for="polygon file" class="form__label">Polygon file:</label>
-              <input type="file" name="fileGeoJSON" required />
-          </div>
+            <div class="form__fieldset">
+                <label for="Number of drones" class="form__label">Number of drones:</label>
+                <input type="number" name="numDrones" id="numDrones" class="form__input" />
+            </div>
+            <div class="form__fieldset">
+                <label for="granularity" class="form__label">Granularity:</label>
+                <input type="number" name="granularidad" id="granularidad" class="form__input" />
+                </div>
+            <div class="form__fieldset">
+                <label for="checkGranularity" class="form__label">Automate granularity:</label>
+                <input type="checkbox" id="checkGranularity" name="checkGranularity" class="form__input" />
+            </div>
+            <div class="form__fieldset">
+                <label for="polygon file" class="form__label">Polygon file:</label>
+                <input type="file" name="fileGeoJSON" required />
+            </div>
+
     <!--
-          <div class="form__fieldset">
+            <div class="form__fieldset">
             <label for="account" class="form__label">Account:</label>
             <select name="account" id="account" class="form__input form__select">
-              <option value="Checking">Checking</option>
-              <option value="Savings">Savings</option>
-              <option value="Investment">Investment</option>
+                <option value="Checking">Checking</option>
+                <option value="Savings">Savings</option>
+                <option value="Investment">Investment</option>
             </select>
-          </div>
+            </div>
     -->
-          <div class="form__fieldset">
-            <input
-              id="inputMission"
-              class="form__submit form__input"
-              type="submit"
-              value="Start Mission"
-            />
-          </div>
+            <div class="form__fieldset">
+                <input
+                    id="inputMission"
+                    class="form__submit form__input"
+                    type="submit"
+                    value="Start Mission"
+                />
+            </div>
         </form>
 
         <script>

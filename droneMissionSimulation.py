@@ -15,13 +15,14 @@ from shapely.geometry import shape
 from shapely.geometry.polygon import Polygon, Point
 
 class droneMissionSimualtion():
-    def __init__(self, id, file, numDrones = 1, granularity = 40, output = False, alert = False):
+    def __init__(self, id, file, numDrones = 1, granularity = 40, output = False, alert = False, automateGranularity = False):
         self._id = id
         self._file = file
         self._numDrones = numDrones
         self._granularity = granularity
         self._output = output
         self._alert = alert
+        self._automateGranularity = automateGranularity
         #self._homeLat = homeLat
         #self._homeLon = homeLon
 
@@ -94,7 +95,7 @@ class droneMissionSimualtion():
 
         #For the time being just take the first inputed polygon, but the array will be used in the future to treat multiple polygons
         #Use the feature of shapely of colection of polygons, points, etc...
-        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=self.polygons[0])
+        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=self.polygons[0], automateGranularity=self._automateGranularity)
         (rutas, coordenadasPol) = generadorRutas.generaRuta()
 
         if modo == genRut.Modos.Single:
