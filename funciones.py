@@ -517,7 +517,8 @@ class ControladorDron:
                 break;
 
             time.sleep(1)
-
+            
+        self.retHome = True
         print("La ejecucion terminó por: ", end="")
         if (self.objetivoEncontrado):
             print("Encontrar al objetivo")

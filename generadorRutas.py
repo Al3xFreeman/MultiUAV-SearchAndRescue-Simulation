@@ -33,7 +33,7 @@ class GeneraRutas:
         self.maxPoints = 300
         self.automateGranularity = automateGranularity
         if(automateGranularity):
-            self.granularity = 50
+            self.granularity = 10
         else:
             self.granularity = granularity
 
@@ -71,7 +71,7 @@ class GeneraRutas:
             
             while(len(self.puntosDentro) >= self.maxPoints):
                 print("Número de puntos ha superado el límite")
-                self.granularity *= 1.5
+                self.granularity *= 1.10
                 print("Nueva granularidad: ", self.granularity)
                 print("Generando matriz con granularidad: ", self.granularity)
                 self.matriz = generaMatriz(self.poligono, self.granularity)
