@@ -488,6 +488,7 @@ class ControladorDron:
             #In case the next information gets lost
             if(self.vehicle.commands.next > self.maxWP):
                 self.maxWP = self.vehicle.commands.next
+                print("Dron: ", self.id, " ha llegado al punto:", self.maxWP - 1)
             if(self.vehicle.commands.next < self.maxWP):
                 self.vehicle.commands.next = self.maxWP
 
@@ -510,7 +511,7 @@ class ControladorDron:
             #if(self.retHome and (get_distance_metres(self.vehicle.location.global_frame, point) < 5)):
             #    self.retHome = False
 
-            if((self.vehicle.commands.next == self.numberOfPoints) and get_distance_metres(self.vehicle.location.global_frame, self.lastPoint) < 5):
+            if((self.maxWP == self.numberOfPoints) and get_distance_metres(self.vehicle.location.global_frame, self.lastPoint) < 5):
                 print("DRON ", self.id, " HA LLEGADO AL FINAL")
                 self.retHome = True
                 break;
