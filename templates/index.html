@@ -259,14 +259,14 @@
                 if(mapMarkers[parseInt(obj.id)] != null) {
                     map.removeLayer(mapMarkers[parseInt(obj.id)]);
                 }
-                if(obj.battery >= 75) {
+                if(obj.battery >= 60) {
                     newMarker = L.marker([obj.latitude, obj.longitude], {icon: greenIcon}).addTo(map).bindTooltip('' + obj.id , 
     {
         permanent: true, 
         direction: 'right'
     }
 );
-                } else if (obj.battery >= 50 && obj.battery < 75) {
+                } else if (obj.battery >= 15 && obj.battery < 60) {
                     newMarker = L.marker([obj.latitude, obj.longitude], {icon: goldIcon}).addTo(map).bindTooltip('' + obj.id, 
     {
         permanent: true, 

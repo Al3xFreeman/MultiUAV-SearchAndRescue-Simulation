@@ -53,7 +53,7 @@ class IniciaSITL:
 sem = threading.Semaphore()
 
 class ControladorDron:
-    def __init__(self, connect, id, numPoints, lastPoint, wayPointLocations):
+    def __init__(self, connect, id, numPoints, lastPoint, wayPointLocations, rechargePolicy = "Time"):
         #print("ID = ", id)
         
         #self.sem = threading.Semaphore()
@@ -62,7 +62,8 @@ class ControladorDron:
         self.connection_string = connect
 
         self.rechargeTime = 420 #7 minutes of autonomy
-        self.lastRecharge = 0
+        self.lastRecharge = time.time()
+        self.rechargePolicy = rechargePolicy
 
         self.locations = wayPointLocations
         self.finished = False
@@ -457,10 +458,10 @@ class ControladorDron:
         distancetopoint = get_distance_metres(self.vehicle.location.global_frame, targetWaypointLocation)
         return distancetopoint
 
-    def executeMission(self, rechargePolicy = "Time"):
+    def executeMission(self):
         
         print("Starting mission")
-        print("Recharge policy: ", rechargePolicy, "||| Time to recharge: ", self.rechargeTime)
+        print("Recharge policy: ", self.rechargePolicy, "||| Time to recharge: ", self.rechargeTime)
         
         # Reset mission set to first (0) waypoint
         self.vehicle.commands.next=0
@@ -492,7 +493,7 @@ class ControladorDron:
             if(self.vehicle.commands.next < self.maxWP):
                 self.vehicle.commands.next = self.maxWP
 
-            if(rechargePolicy == "Time"):
+            if(self.rechargePolicy == "Time"):
                 self.checkTimeRecharge()
             else:
                 self.checkBattery(50, lvl)
@@ -517,7 +518,7 @@ class ControladorDron:
                 break;
 
             time.sleep(1)
-            
+
         self.retHome = True
         print("La ejecucion terminó por: ", end="")
         if (self.objetivoEncontrado):
@@ -660,12 +661,18 @@ class ControladorDron:
 
 
     def calculateRealBattery(self):
-        if self.vehicle.battery.level == None:
-            simLvl = 0
-        else:
-            simLvl = self.vehicle.battery.level
-        
-        return (simLvl + (self.bateriasUsadas * 100))
+        if(self.rechargePolicy == "Time"):
+            #normalize the time sisce battery recharge to know the % of "battery" (flight time) used
+            timeLeft = self.rechargeTime - (time.time() - self.lastRecharge)
+            timeLeftNorm = timeLeft / self.rechargeTime
+            return 100 * timeLeftNorm #Returns the percent of flight time left
+        elif(self.rechargePolicy == "Battery"):
+            if self.vehicle.battery.level == None:
+                simLvl = 0
+            else:
+                simLvl = self.vehicle.battery.level
+            
+            return (simLvl + (self.bateriasUsadas * 100))
         
 
 
