@@ -211,7 +211,7 @@ class droneMissionSimualtion():
             recorrido = 0
             total = 0
             for d in drones:
-                total += len(d.numberOfPoints)
+                total += d.numberOfPoints
                 if(total == 0): #Rework this, this is just a patch to not have div by 0. Store the prev total if the drone is uploading the commands, that is when its length can be 0.
                     total = 1
                 recorrido += d.maxWP
