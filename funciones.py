@@ -539,7 +539,7 @@ class ControladorDron:
         sem.release()
 
         print("EJECUTA MISION TERMINADO, Dron: ", self.id ," volviendo a casa")
-        while(get_distance_metres(self.vehicle.location.global_frame, self.home) > 0.5):
+        while(get_distance_metres(self.vehicle.location.global_frame, self.home) > 10):
             time.sleep(1)
         
         print("Dron: ", self.id, " ha llegado a casa")
