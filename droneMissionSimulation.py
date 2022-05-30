@@ -95,7 +95,7 @@ class droneMissionSimualtion():
 
         #For the time being just take the first inputed polygon, but the array will be used in the future to treat multiple polygons
         #Use the feature of shapely of colection of polygons, points, etc...
-        generadorRutas = genRut.GeneraRutas(file = "puntosPoligono2.txt", granularity=self._granularity, modo=modo, coordenadas=self.polygons[0], automateGranularity=self._automateGranularity)
+        generadorRutas = genRut.GeneraRutas(file = self._file, granularity=self._granularity, modo=modo, coordenadas=self.polygons[0], automateGranularity=self._automateGranularity)
         (rutas, coordenadasPol) = generadorRutas.generaRuta()
 
         if modo == genRut.Modos.Single:

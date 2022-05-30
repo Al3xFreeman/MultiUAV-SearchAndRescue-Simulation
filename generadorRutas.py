@@ -14,7 +14,7 @@ from python_tsp.distances import great_circle_distance_matrix
 from python_tsp.heuristics import solve_tsp_local_search
 
 import datetime
-
+import time
 class Modos(Enum):
     Single = 1
     mTSP = 2
@@ -30,7 +30,7 @@ class GeneraRutas:
 
         #max number of points to perform TSP (if automateGranularity is True)
         #self.minPoints = 200
-        self.maxPoints = 300
+        self.maxPoints = 200
         self.automateGranularity = automateGranularity
         if(automateGranularity):
             self.granularity = 25
@@ -48,8 +48,8 @@ class GeneraRutas:
         print("Iniciando la generación de rutas...")
         print("***********************************")
 
-        print("Leyendo archivo")
-        self.coordenadas = readFile(self.file)
+        #print("Leyendo archivo")
+        #self.coordenadas = readFile(self.file)
         
         #Temporal file to accept the new coordinates, will change to use shapely functions all the way
         self.shapelyToCoords = shapToCoords(self._coords)
@@ -60,11 +60,11 @@ class GeneraRutas:
         #Comprueba si el polígono es válido
         #if not checkPoligono(poligono):
         #     return "ERROR"
-        
+        self.esquinas = []
         
         if(self.automateGranularity):
             print("Generando matriz con granularidad: ", self.granularity)
-            self.matriz = generaMatriz(self.poligono, self.granularity)
+            self.matriz, self.esquinas = generaMatriz(self.poligono, self.granularity)
 
             print("Calculando puntos dentro")
             self.puntosDentro = generaPuntos(self.poligono, self.matriz)
@@ -74,14 +74,14 @@ class GeneraRutas:
                 self.granularity *= 1.25
                 print("Nueva granularidad: ", self.granularity)
                 print("Generando matriz con granularidad: ", self.granularity)
-                self.matriz = generaMatriz(self.poligono, self.granularity)
+                self.matriz, self.esquinas = generaMatriz(self.poligono, self.granularity)
 
                 print("Calculando puntos dentro")
                 self.puntosDentro = generaPuntos(self.poligono, self.matriz)
 
         else:
             print("Generando matriz con granularidad: ", self.granularity)
-            self.matriz = generaMatriz(self.poligono, self.granularity)
+            self.matriz, self.esquinas = generaMatriz(self.poligono, self.granularity)
 
             print("Calculando puntos dentro")
             self.puntosDentro = generaPuntos(self.poligono, self.matriz)
@@ -98,12 +98,18 @@ class GeneraRutas:
         return []
 
     def genRutaSingle(self):
-       
+
         print("************TSP**********")
         (self.ruta, coste) = singleTSP(self.puntosDentro)
 
         print("Genera Waypoints")
         self.locationsGlobals = generateWaypoints(self.puntosDentro, self.ruta)
+
+        self.printRuta(self.matriz, "Polygon", polygon=True, esquinas=True, showPuntos=False)
+        self.printRuta(self.matriz, "Matrix", polygon=True, esquinas=True, showPuntos=True)
+        self.printRuta(self.puntosDentro, "PuntosDentro")
+        self.printRuta(self.puntosDentro, "Ruta", ruta = True)
+        self.printRuta(self.puntosDentro, "Ruta_NoNumber", ruta = True, anotate=False)
 
         return [self.locationsGlobals]
 
@@ -113,13 +119,15 @@ class GeneraRutas:
     def genRutaSectores(self):
         print("Genera ruta por sectores")
 
-    def printRuta(self):
+    def printRuta(self, puntos, name, ruta = False, anotate = True, polygon = True, esquinas = True, showPuntos = True):
         coord_x = []
         coord_y = []
         coord_x_pol = []
         coord_y_pol = []
+        coord_x_esquinas = []
+        coord_y_esquinas = []
 
-        for elem in self.puntosDentro:
+        for elem in puntos:
             coord_x.append(elem.lon)
             coord_y.append(elem.lat)
         
@@ -127,28 +135,51 @@ class GeneraRutas:
             coord_x_pol.append(elem.lon)
             coord_y_pol.append(elem.lat)
 
+        for elem in self.esquinas:
+            coord_x_esquinas.append(elem.lon)
+            coord_y_esquinas.append(elem.lat)
+
         l = [coord_x, coord_y]
         l_pol = [coord_x_pol, coord_y_pol]
-
+        l_esquinas = [coord_x_esquinas, coord_y_esquinas]
         #Pone la Home location en el mapa
         #l[0].append(self.vehicle.location.global_frame.lat)
         #l[1].append(self.vehicle.location.global_frame.lon)
 
         fig, ax = plt.subplots()
-        ax.scatter(l[0], l[1])
-        ax.scatter(l_pol[0], l_pol[1], color='red')
+        if showPuntos:
+            ax.scatter(l[0], l[1])
+        if polygon:
+            ax.scatter(l_pol[0], l_pol[1], color='red')
+        if esquinas:
+            ax.scatter(l_esquinas[0], l_esquinas[1], color='purple')
+        conex_x_pol = []
+        conex_y_pol = []
 
-        conex_x = [l[0][self.ruta[-2]]]
-        conex_y = [l[1][self.ruta[-2]]]
+        for i, p in enumerate(self.poligono):
+            conex_x_pol.append(p.lon)
+            conex_y_pol.append(p.lat)
 
-        for i, txt in enumerate(self.puntosDentro):
-            ax.annotate(i, (l[0][i], l[1][i]))
-            conex_x.append(l[0][self.ruta[i]])
-            conex_y.append(l[1][self.ruta[i]])
+        plt.plot(conex_x_pol, conex_y_pol, 'ro-')
 
-        plt.plot(conex_x, conex_y)
 
-        plt.show()
+        if(ruta):
+
+            conex_x = [l[0][self.ruta[-2]]]
+            conex_y = [l[1][self.ruta[-2]]]
+
+            for i, txt in enumerate(self.puntosDentro):
+                if anotate:
+                    ax.annotate(i, (l[0][i], l[1][i]))
+                conex_x.append(l[0][self.ruta[i]])
+                conex_y.append(l[1][self.ruta[i]])
+
+            plt.plot(conex_x, conex_y)
+
+        ax.set_aspect('equal', 'box')
+
+        #plt.show()
+        plt.savefig("Graphics/" + self.file.filename + name + "_" + str(time.time()) + '.png')
 
 #TODO Checkear distintos formatos de coordenadas
 def readFile(file):
@@ -226,7 +257,11 @@ def generaMatriz(poligono, granularidad = 25):
     esquina_izq_abajo = LocationGlobal(lado_abajo, lado_izq)
     esquina_derecha_arr = LocationGlobal(lado_arriba, lado_derecho)
     esquina_derecha_abajo = LocationGlobal(lado_abajo, lado_derecho)
-
+    esquinas = []
+    esquinas.append(esquina_izq_arr)
+    esquinas.append(esquina_derecha_arr)
+    esquinas.append(esquina_izq_abajo)
+    esquinas.append(esquina_derecha_abajo)
     #De momento vamos a tratar la granularidad como 3 niveles:
     # Grande, normal y pequeña
 
@@ -249,8 +284,8 @@ def generaMatriz(poligono, granularidad = 25):
         x += granularidad
 
     print("Total puntos: ", len(puntos))
-        
-    return puntos
+    
+    return puntos, esquinas
 
 #IMPORTANTE:
 #https://automating-gis-processes.github.io/CSC18/lessons/L4/point-in-polygon.html
