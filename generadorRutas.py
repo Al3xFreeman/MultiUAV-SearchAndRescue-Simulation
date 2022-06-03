@@ -15,6 +15,8 @@ from python_tsp.heuristics import solve_tsp_local_search
 
 import datetime
 import time
+import os
+
 class Modos(Enum):
     Single = 1
     mTSP = 2
@@ -179,6 +181,9 @@ class GeneraRutas:
         ax.set_aspect('equal', 'box')
 
         #plt.show()
+        if not os.path.exists('Graphics'):
+            os.makedirs('Graphics')
+        
         plt.savefig("Graphics/" + self.file.filename + name + "_" + str(time.time()) + '.png')
 
 #TODO Checkear distintos formatos de coordenadas
